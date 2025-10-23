@@ -78,5 +78,5 @@ Repord generated:
 The results consistently demonstrate:
 
 1. **Re-compiling is expensive**: `benchmarkCompileInLoop` is significantly slower than the pre-compiled version.
-2. **`String` methods are a trap**: `String.matches()` is slower than using a pre-compiled `Pattern` because it re-compiles the regex on every call.
+2. **`String` methods are a trap**: `String.matches()` is slower than using a pre-compiled `Pattern` because it re-compiles the regex on every call. Even with the JIT optimizations.
 3. **Pre-compilation is key**: Using a `private static final Pattern` is the most performant approach for repeated regex operations.
