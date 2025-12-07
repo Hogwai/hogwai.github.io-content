@@ -21,5 +21,9 @@ public class PostService {
         return postRepository.hasPostsForSubreddit(subreddit);
     }
 
+    public boolean hasKeywords(String subreddit, String id) {
+        return postRepository.hasKeywords(subreddit, id);
+    }
+
 
 }

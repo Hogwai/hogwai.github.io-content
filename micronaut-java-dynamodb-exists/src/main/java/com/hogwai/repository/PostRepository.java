@@ -51,6 +51,26 @@ public class PostRepository {
         return response.count() > 0;
     }
 
+    public boolean hasKeywords(String subreddit, String id) {
+        Map<String, AttributeValue> values = new HashMap<>();
+        values.put(":subVal", AttributeValue.builder().s(subreddit).build());
+        values.put(":idVal", AttributeValue.builder().s(id).build());
+        values.put(":zero", AttributeValue.builder().n("0").build());
+
+        QueryRequest request = QueryRequest.builder()
+                                           .tableName(POSTS)
+                                           .keyConditionExpression("subreddit = :subVal AND id = :idVal")
+                                           .filterExpression("size(keywords) > :zero")
+                                           .expressionAttributeValues(values)
+                                           .projectionExpression("id")
+                                           .limit(1)
+                                           .build();
+
+        QueryResponse response = dynamoDbClient.query(request);
+
+        return response.count() > 0;
+    }
+
     private static Map<String, AttributeValue> buildKey(String partitionKey, String sortKey) {
         return Map.of(
                 SUBREDDIT, AttributeValue.builder()

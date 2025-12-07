@@ -23,4 +23,9 @@ public class PostController {
     public boolean hasPosts(@PathVariable String subreddit) {
         return postService.hasPostsForSubreddit(subreddit);
     }
+
+    @Get("/{id}/has-keywords")
+    public boolean hasKeywords(@PathVariable String id, @QueryValue String subreddit) {
+        return postService.hasKeywords(subreddit, id);
+    }
 }
