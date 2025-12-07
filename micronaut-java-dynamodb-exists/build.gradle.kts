@@ -11,22 +11,24 @@ repositories {
     mavenCentral()
 }
 
+val dataFakerVersion = "2.5.3"
+
 dependencies {
     annotationProcessor("org.projectlombok:lombok")
     annotationProcessor("io.micronaut:micronaut-http-validation")
     annotationProcessor("io.micronaut.serde:micronaut-serde-processor")
     annotationProcessor("io.micronaut.validation:micronaut-validation-processor")
+    implementation("io.micronaut:micronaut-http-client")
     implementation("io.micronaut.aws:micronaut-aws-sdk-v2")
     implementation("io.micronaut.serde:micronaut-serde-jackson")
     implementation("io.micronaut.validation:micronaut-validation")
     implementation("jakarta.validation:jakarta.validation-api")
+    implementation("software.amazon.awssdk:dynamodb-enhanced")
     implementation("software.amazon.awssdk:dynamodb")
+    implementation("net.datafaker:datafaker:${dataFakerVersion}")
     compileOnly("io.micronaut:micronaut-http-client")
     compileOnly("org.projectlombok:lombok")
     runtimeOnly("ch.qos.logback:logback-classic")
-    testImplementation("io.micronaut:micronaut-http-client")
-    testImplementation("org.assertj:assertj-core")
-    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
 

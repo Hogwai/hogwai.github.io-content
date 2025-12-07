@@ -1,0 +1,64 @@
+package com.hogwai.repository;
+
+import jakarta.inject.Singleton;
+import lombok.extern.slf4j.Slf4j;
+import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
+import software.amazon.awssdk.services.dynamodb.model.*;
+
+import java.util.HashMap;
+import java.util.Map;
+
+@Singleton
+@Slf4j
+public class PostRepository {
+    public static final String POSTS = "posts";
+    public static final String SUBREDDIT = "subreddit";
+    public static final String ID = "id";
+
+    private final DynamoDbClient dynamoDbClient;
+
+    public PostRepository(DynamoDbClient dynamoDbClient) {
+        this.dynamoDbClient = dynamoDbClient;
+    }
+
+    public boolean exists(String subreddit, String id) {
+        Map<String, AttributeValue> key = buildKey(subreddit, id);
+
+        GetItemRequest request = GetItemRequest.builder()
+                                               .tableName(POSTS)
+                                               .key(key)
+                                               .projectionExpression(SUBREDDIT)
+                                               .build();
+
+        GetItemResponse response = dynamoDbClient.getItem(request);
+
+        return response.hasItem() && !response.item().isEmpty();
+    }
+
+    public boolean hasPostsForSubreddit(String subreddit) {
+        Map<String, AttributeValue> values = new HashMap<>();
+        values.put(":subVal", AttributeValue.builder().s(subreddit).build());
+
+        QueryRequest request = QueryRequest.builder()
+                                           .tableName(POSTS)
+                                           .keyConditionExpression("subreddit = :subVal")
+                                           .expressionAttributeValues(values)
+                                           .projectionExpression(SUBREDDIT)
+                                           .limit(1)
+                                           .build();
+
+        QueryResponse response = dynamoDbClient.query(request);
+        return response.count() > 0;
+    }
+
+    private static Map<String, AttributeValue> buildKey(String partitionKey, String sortKey) {
+        return Map.of(
+                SUBREDDIT, AttributeValue.builder()
+                                         .s(partitionKey)
+                                         .build(),
+                ID, AttributeValue.builder()
+                                  .s(sortKey)
+                                  .build()
+        );
+    }
+}
