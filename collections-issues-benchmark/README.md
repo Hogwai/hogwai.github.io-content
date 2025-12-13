@@ -1,6 +1,6 @@
 # collections-issues-benchmark
 
-This project provides JMH benchmarks to demonstrate the performance impact of different `java.util.regex.Pattern` usage patterns in Java.
+This project provides JMH benchmarks to demonstrate the performance impact of using the contains operator of different data structures (List, Set)
 
 ## Prerequisites
 
