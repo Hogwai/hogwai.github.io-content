@@ -31,6 +31,7 @@ public class PostRepository {
 
         GetItemResponse response = dynamoDbClient.getItem(request);
 
+        logConsumedCapacity(response.consumedCapacity());
         return response.hasItem() && !response.item()
                                               .isEmpty();
     }
@@ -45,6 +46,8 @@ public class PostRepository {
                                                .build();
 
         GetItemResponse response = dynamoDbClient.getItem(request);
+
+        logConsumedCapacity(response.consumedCapacity());
 
         return response.hasItem() && !response.item()
                                               .isEmpty();
@@ -65,6 +68,7 @@ public class PostRepository {
                                            .build();
 
         QueryResponse response = dynamoDbClient.query(request);
+        logConsumedCapacity(response.consumedCapacity());
         return response.count() > 0;
     }
 
@@ -90,8 +94,12 @@ public class PostRepository {
                                            .build();
 
         QueryResponse response = dynamoDbClient.query(request);
-
+        logConsumedCapacity(response.consumedCapacity());
         return response.count() > 0;
+    }
+
+    private static void logConsumedCapacity(ConsumedCapacity capacity) {
+        log.info("Consumed capacity: {}", capacity);
     }
 
     private static Map<String, AttributeValue> buildKey(String partitionKey, String sortKey) {
