@@ -14,12 +14,17 @@ public class PostController {
         this.postService = redditPostService;
     }
 
-    @Get("/{subreddit}/exists")
+    @Get("/projection/{subreddit}/exists")
     public boolean exists(@PathVariable String subreddit, @QueryValue String id) {
-        return postService.exists(subreddit, id);
+        return postService.existsByProjection(subreddit, id);
     }
 
-    @Get("/{subreddit}/has-posts")
+    @Get("/get-item/{subreddit}/exists")
+    public boolean existsWithGetItem(@PathVariable String subreddit, @QueryValue String id) {
+        return postService.existsByGetItem(subreddit, id);
+    }
+
+    @Get("/projection/{subreddit}/has-posts")
     public boolean hasPosts(@PathVariable String subreddit) {
         return postService.hasPostsForSubreddit(subreddit);
     }

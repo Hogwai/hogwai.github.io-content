@@ -13,10 +13,13 @@ public class PostService {
         this.postRepository = postRepository;
     }
 
-    public boolean exists(String subreddit, String id) {
-        return postRepository.exists(subreddit, id);
+    public boolean existsByProjection(String subreddit, String id) {
+        return postRepository.existsByProjection(subreddit, id);
     }
 
+    public boolean existsByGetItem(String subreddit, String id) {
+        return postRepository.existsByGetItem(subreddit, id);
+    }
     public boolean hasPostsForSubreddit(String subreddit) {
         return postRepository.hasPostsForSubreddit(subreddit);
     }

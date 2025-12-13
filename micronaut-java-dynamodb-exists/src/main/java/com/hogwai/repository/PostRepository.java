@@ -1,6 +1,7 @@
 package com.hogwai.repository;
 
 import jakarta.inject.Singleton;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.*;
@@ -10,6 +11,7 @@ import java.util.Map;
 
 @Singleton
 @Slf4j
+@RequiredArgsConstructor
 public class PostRepository {
     public static final String POSTS = "posts";
     public static final String SUBREDDIT = "subreddit";
@@ -17,27 +19,42 @@ public class PostRepository {
 
     private final DynamoDbClient dynamoDbClient;
 
-    public PostRepository(DynamoDbClient dynamoDbClient) {
-        this.dynamoDbClient = dynamoDbClient;
-    }
-
-    public boolean exists(String subreddit, String id) {
+    public boolean existsByProjection(String subreddit, String id) {
         Map<String, AttributeValue> key = buildKey(subreddit, id);
 
         GetItemRequest request = GetItemRequest.builder()
                                                .tableName(POSTS)
                                                .key(key)
                                                .projectionExpression(SUBREDDIT)
+                                               .returnConsumedCapacity(ReturnConsumedCapacity.INDEXES)
                                                .build();
 
         GetItemResponse response = dynamoDbClient.getItem(request);
 
-        return response.hasItem() && !response.item().isEmpty();
+        return response.hasItem() && !response.item()
+                                              .isEmpty();
+    }
+
+    public boolean existsByGetItem(String subreddit, String id) {
+        Map<String, AttributeValue> key = buildKey(subreddit, id);
+
+        GetItemRequest request = GetItemRequest.builder()
+                                               .tableName(POSTS)
+                                               .key(key)
+                                               .returnConsumedCapacity(ReturnConsumedCapacity.INDEXES)
+                                               .build();
+
+        GetItemResponse response = dynamoDbClient.getItem(request);
+
+        return response.hasItem() && !response.item()
+                                              .isEmpty();
     }
 
     public boolean hasPostsForSubreddit(String subreddit) {
         Map<String, AttributeValue> values = new HashMap<>();
-        values.put(":subVal", AttributeValue.builder().s(subreddit).build());
+        values.put(":subVal", AttributeValue.builder()
+                                            .s(subreddit)
+                                            .build());
 
         QueryRequest request = QueryRequest.builder()
                                            .tableName(POSTS)
@@ -53,9 +70,15 @@ public class PostRepository {
 
     public boolean hasKeywords(String subreddit, String id) {
         Map<String, AttributeValue> values = new HashMap<>();
-        values.put(":subVal", AttributeValue.builder().s(subreddit).build());
-        values.put(":idVal", AttributeValue.builder().s(id).build());
-        values.put(":zero", AttributeValue.builder().n("0").build());
+        values.put(":subVal", AttributeValue.builder()
+                                            .s(subreddit)
+                                            .build());
+        values.put(":idVal", AttributeValue.builder()
+                                           .s(id)
+                                           .build());
+        values.put(":zero", AttributeValue.builder()
+                                          .n("0")
+                                          .build());
 
         QueryRequest request = QueryRequest.builder()
                                            .tableName(POSTS)
