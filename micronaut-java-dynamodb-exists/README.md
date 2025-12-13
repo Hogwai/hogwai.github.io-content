@@ -53,8 +53,8 @@ This project explores strategies to:
 | Technique | Saves Bandwidth? | Saves RCU ($$$)? | Best For |
 | :--- | :---: | :---: | :--- |
 | **ProjectionExpression** | ✅ Yes | ❌ No | Large items, reducing network latency. |
-| **Eventual Consistency** | ❌ No | ✅ **Yes (-50%)** | `exists` checks where 1s delay is acceptable. |
-| **Keys-Only GSI** | ✅ Yes | ✅ **Yes (-90%)** | Heavy `exists` checks on very large items. |
+| **Eventual Consistency** | ❌ No | ✅ **Yes** | `exists` checks where delay is acceptable. |
+| **Keys-Only GSI** | ✅ Yes | ✅ **Yes** | Heavy `exists` checks on very large items. |
 
 ## 🚀 Best Practices
 
