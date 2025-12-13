@@ -1,52 +1,72 @@
-## Micronaut 4.10.3 Documentation
+# DynamoDB Lightweight "Exists" Patterns (Java SDK v2)
 
-- [User Guide](https://docs.micronaut.io/4.10.3/guide/index.html)
-- [API Reference](https://docs.micronaut.io/4.10.3/api/index.html)
-- [Configuration Reference](https://docs.micronaut.io/4.10.3/guide/configurationreference.html)
-- [Micronaut Guides](https://guides.micronaut.io/index.html)
----
+This repository demonstrates efficient patterns for checking item existence in Amazon DynamoDB without retrieving full item payloads. It focuses on emulating SQL-like `EXISTS` behavior using the **AWS SDK for Java v2**.
 
-- [Micronaut Gradle Plugin documentation](https://micronaut-projects.github.io/micronaut-gradle-plugin/latest/)
-- [GraalVM Gradle Plugin documentation](https://graalvm.github.io/native-build-tools/latest/gradle-plugin.html)
-- [Shadow Gradle Plugin](https://gradleup.com/shadow/)
-## Feature serialization-jackson documentation
+## 📦 Prerequisites
 
-- [Micronaut Serialization Jackson Core documentation](https://micronaut-projects.github.io/micronaut-serialization/latest/guide/)
+* Java 17+
+* Spring Boot / Micronaut / Quarkus (Dependency Injection)
+* AWS SDK for Java v2 (`software.amazon.awssdk:dynamodb`)
+* Lombok
 
+## 🎯 The Goal
 
-## Feature aws-v2-sdk documentation
+In SQL, checking for existence is cheap (`SELECT 1 FROM table WHERE id = ?`). In DynamoDB, `GetItem` retrieves the entire item by default. If your items are large (e.g., storing HTML bodies, JSON blobs), this wastes **Network Bandwidth** and increases latency.
 
-- [Micronaut AWS SDK 2.x documentation](https://micronaut-projects.github.io/micronaut-aws/latest/guide/)
+This project explores strategies to:
 
-- [https://docs.aws.amazon.com/sdk-for-java/v2/developer-guide/welcome.html](https://docs.aws.amazon.com/sdk-for-java/v2/developer-guide/welcome.html)
+1. Minimize **Network Overhead** (Payload size).
+2. Understand **Read Capacity Unit (RCU)** consumption.
+3. Handle **Batch Operations** correctly.
 
+## 🛠️ Strategies Implemented
 
-## Feature dynamodb documentation
+### 1. `existsByProjection`
 
-- [Micronaut Amazon DynamoDB documentation](https://micronaut-projects.github.io/micronaut-aws/latest/guide/#dynamodb)
+* **Method:** `GetItem` with `ProjectionExpression`.
+* **How it works:** Asks DynamoDB to return only the specific key attribute instead of the whole item.
+* **Pros:** Significantly reduces network bandwidth and deserialization CPU cost.
+* **Cons:** **Does not reduce RCU costs.** DynamoDB still reads the full item size from disk to process the projection.
 
-- [https://aws.amazon.com/dynamodb/](https://aws.amazon.com/dynamodb/)
+### 2. `batchExists`
 
+* **Method:** `BatchGetItem` with key mapping.
+* **How it works:** Checks up to 100 items in a single HTTP request.
 
-## Feature assertj documentation
+* **Key Logic:**
+  * DynamoDB only returns items that *exist*. The code maps the response back to the requested list to determine `true`/`false`.
+  * **Pro Tip:** Production implementations must handle `UnprocessedKeys` (throttling) via a retry loop.
 
-- [https://assertj.github.io/doc/](https://assertj.github.io/doc/)
+### 3. `hasKeywordsByGetItem`
 
+* **Method:** `GetItem` checking a specific attribute (e.g., a list or boolean).
+* **How it works:** Retrieves only the `keywords` attribute to check if it contains data.
+* **Use Case:** Faster than client-side filtering if the item is large. Note that `FilterExpression` on a `Query` still consumes RCU for the full item read.
 
-## Feature validation documentation
+### 4. `hasPostsForSubreddit`
 
-- [Micronaut Validation documentation](https://micronaut-projects.github.io/micronaut-validation/latest/guide/)
+* **Method:** `Query` with `Limit(1)`.
+* **Use Case:** Efficiently checks if *any* item exists in a partition (collection) without reading the whole list.
 
+## 💡 Performance Cheatsheet
 
-## Feature micronaut-aot documentation
+| Technique | Saves Bandwidth? | Saves RCU ($$$)? | Best For |
+| :--- | :---: | :---: | :--- |
+| **ProjectionExpression** | ✅ Yes | ❌ No | Large items, reducing network latency. |
+| **Eventual Consistency** | ❌ No | ✅ **Yes (-50%)** | `exists` checks where 1s delay is acceptable. |
+| **Keys-Only GSI** | ✅ Yes | ✅ **Yes (-90%)** | Heavy `exists` checks on very large items. |
 
-- [Micronaut AOT documentation](https://micronaut-projects.github.io/micronaut-aot/latest/guide/)
+## 🚀 Best Practices
 
+1. **Use Eventual Consistency:**
+    For existence checks, you rarely need Strong Consistency. Set `.consistentRead(false)` to halve your RCU bill.
 
-## Feature lombok documentation
+    ```java
+    GetItemRequest.builder().consistentRead(false)...
+    ```
 
-- [Micronaut Project Lombok documentation](https://docs.micronaut.io/latest/guide/index.html#lombok)
+2. **Handle Batch Throttling:**
+    `BatchGetItem` may return partial results. Always check `response.unprocessedKeys()` and retry those specific keys.
 
-- [https://projectlombok.org/features/all](https://projectlombok.org/features/all)
-
-
+3. **Global Secondary Indexes (GSI):**
+    If your items are massive (e.g., >4KB), create a **KEYS_ONLY GSI**. Reading from the index is much cheaper than reading from the main table with a projection.
