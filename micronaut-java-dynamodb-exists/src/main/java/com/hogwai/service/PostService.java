@@ -4,6 +4,9 @@ import com.hogwai.repository.PostRepository;
 import jakarta.inject.Singleton;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.List;
+import java.util.Map;
+
 @Singleton
 @Slf4j
 public class PostService {
@@ -28,5 +31,11 @@ public class PostService {
         return postRepository.hasKeywords(subreddit, id);
     }
 
+    public boolean hasKeywordsByGetItem(String subreddit, String id) {
+        return postRepository.hasKeywordsByGetItem(subreddit, id);
+    }
 
+    public Map<String, Boolean> batchExists(String subreddit, List<String> ids) {
+        return postRepository.batchExists(subreddit, ids);
+    }
 }
