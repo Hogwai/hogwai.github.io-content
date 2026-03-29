@@ -5,6 +5,9 @@ import io.micronaut.http.annotation.*;
 import io.micronaut.scheduling.TaskExecutors;
 import io.micronaut.scheduling.annotation.ExecuteOn;
 
+import java.util.List;
+import java.util.Map;
+
 @Controller("/post")
 @ExecuteOn(TaskExecutors.BLOCKING)
 public class PostController {
@@ -32,5 +35,15 @@ public class PostController {
     @Get("/{id}/has-keywords")
     public boolean hasKeywords(@PathVariable String id, @QueryValue String subreddit) {
         return postService.hasKeywords(subreddit, id);
+    }
+
+    @Get("/{id}/has-keywords-by-get-item")
+    public boolean hasKeywordsByGetItem(@PathVariable String id, @QueryValue String subreddit) {
+        return postService.hasKeywordsByGetItem(subreddit, id);
+    }
+
+    @Post("/batch-exists/{subreddit}")
+    public Map<String, Boolean> batchExists(@PathVariable String subreddit, @Body List<String> ids) {
+        return postService.batchExists(subreddit, ids);
     }
 }

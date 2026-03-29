@@ -7,7 +7,7 @@ import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.*;
 
 import java.util.*;
-import java.util.stream.Collectors;
+import java.util.concurrent.TimeUnit;
 
 @Singleton
 @Slf4j
@@ -56,29 +56,41 @@ public class PostRepository {
         List<Map<String, AttributeValue>> keys = ids.stream()
                                                     .map(id -> buildKey(subreddit, id))
                                                     .toList();
+
         Map<String, KeysAndAttributes> requestItems = new HashMap<>();
         requestItems.put(POSTS, KeysAndAttributes.builder()
                                                  .keys(keys)
                                                  .projectionExpression(ID)
                                                  .build());
+
         BatchGetItemRequest request = BatchGetItemRequest.builder()
                                                          .requestItems(requestItems)
                                                          .returnConsumedCapacity(ReturnConsumedCapacity.INDEXES)
                                                          .build();
 
-        BatchGetItemResponse response = dynamoDbClient.batchGetItem(request);
-        List<Map<String, AttributeValue>> foundItems = response.responses()
-                                                               .getOrDefault(POSTS, Collections.emptyList());
-        Set<String> foundIds = foundItems.stream()
-                                         .map(item -> item.get(ID).s())
-                                         .collect(Collectors.toSet());
-
         Map<String, Boolean> result = new HashMap<>();
-        for (String id : ids) {
-            result.put(id, foundIds.contains(id));
-        }
+        ids.forEach(id -> result.put(id, false));
 
-        logConsumedCapacity(response.consumedCapacity().stream().findFirst().orElse(null));
+        int attempts = 0;
+
+        do {
+            attempts++;
+            BatchGetItemResponse response = dynamoDbClient.batchGetItem(request);
+
+            var foundItems = response.responses().getOrDefault(POSTS, List.of());
+            foundItems.forEach(item -> result.put(item.get(ID).s(), true));
+
+            logConsumedCapacity(response.consumedCapacity().stream().findFirst().orElse(null));
+
+            if (response.hasUnprocessedKeys() && !response.unprocessedKeys().isEmpty()) {
+                request = request.toBuilder()
+                                 .requestItems(response.unprocessedKeys())
+                                 .build();
+                backoff(attempts);
+            } else {
+                break;
+            }
+        } while (attempts < 5);
 
         return result;
     }
@@ -125,6 +137,7 @@ public class PostRepository {
                                                .tableName(POSTS)
                                                .key(buildKey(subreddit, id))
                                                .projectionExpression(KEYWORDS)
+                                               .consistentRead(false)
                                                .returnConsumedCapacity(ReturnConsumedCapacity.INDEXES)
                                                .build();
 
@@ -137,6 +150,14 @@ public class PostRepository {
 
         AttributeValue keywords = response.item().get(KEYWORDS);
         return keywords != null && keywords.hasL() && !keywords.l().isEmpty();
+    }
+
+    private static void backoff(int attempt) {
+        try {
+            TimeUnit.MILLISECONDS.sleep((long) Math.pow(2, attempt) * 100);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     private static void logConsumedCapacity(ConsumedCapacity capacity) {

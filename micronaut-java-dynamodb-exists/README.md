@@ -1,72 +1,157 @@
 # DynamoDB Lightweight "Exists" Patterns (Java SDK v2)
 
-This repository demonstrates efficient patterns for checking item existence in Amazon DynamoDB without retrieving full item payloads. It focuses on emulating SQL-like `EXISTS` behavior using the **AWS SDK for Java v2**.
+Efficient patterns for checking item existence in Amazon DynamoDB without retrieving full item payloads. Emulates SQL-like `EXISTS` behavior using the **AWS SDK for Java v2**.
 
-## 📦 Prerequisites
+Companion project for the article: [Replicating the SQL exists statement behavior for DynamoDB](https://hogwai.github.io/posts/replicating-exists-statement-for-java-dynamodb/)
 
-* Java 17+
-* Spring Boot / Micronaut / Quarkus (Dependency Injection)
+## Prerequisites
+
+* Java 21+
+* Micronaut 4.x
 * AWS SDK for Java v2 (`software.amazon.awssdk:dynamodb`)
-* Lombok
+* Docker (for local DynamoDB)
 
-## 🎯 The Goal
-
-In SQL, checking for existence is cheap (`SELECT 1 FROM table WHERE id = ?`). In DynamoDB, `GetItem` retrieves the entire item by default. If your items are large (e.g., storing HTML bodies, JSON blobs), this wastes **Network Bandwidth** and increases latency.
-
-This project explores strategies to:
-
-1. Minimize **Network Overhead** (Payload size).
-2. Understand **Read Capacity Unit (RCU)** consumption.
-3. Handle **Batch Operations** correctly.
-
-## 🛠️ Strategies Implemented
+## Strategies Implemented
 
 ### 1. `existsByProjection`
 
-* **Method:** `GetItem` with `ProjectionExpression`.
-* **How it works:** Asks DynamoDB to return only the specific key attribute instead of the whole item.
-* **Pros:** Significantly reduces network bandwidth and deserialization CPU cost.
-* **Cons:** **Does not reduce RCU costs.** DynamoDB still reads the full item size from disk to process the projection.
+Uses `GetItem` with a `ProjectionExpression` to return only the partition key attribute instead of the whole item. This reduces network bandwidth and deserialization cost, but does **not** reduce RCU consumption because DynamoDB reads the full item from disk before applying the projection.
 
-### 2. `batchExists`
+```java
+GetItemRequest request = GetItemRequest.builder()
+        .tableName(POSTS)
+        .key(key)
+        .projectionExpression(SUBREDDIT)
+        .build();
 
-* **Method:** `BatchGetItem` with key mapping.
-* **How it works:** Checks up to 100 items in a single HTTP request.
+GetItemResponse response = dynamoDbClient.getItem(request);
+return response.hasItem();
+```
 
-* **Key Logic:**
-  * DynamoDB only returns items that *exist*. The code maps the response back to the requested list to determine `true`/`false`.
-  * **Pro Tip:** Production implementations must handle `UnprocessedKeys` (throttling) via a retry loop.
+### 2. `existsByGetItem`
 
-### 3. `hasKeywordsByGetItem`
+Standard `GetItem` without projection. Serves as a baseline for comparison with the other strategies.
 
-* **Method:** `GetItem` checking a specific attribute (e.g., a list or boolean).
-* **How it works:** Retrieves only the `keywords` attribute to check if it contains data.
-* **Use Case:** Faster than client-side filtering if the item is large. Note that `FilterExpression` on a `Query` still consumes RCU for the full item read.
+### 3. `batchExists`
 
-### 4. `hasPostsForSubreddit`
+Uses `BatchGetItem` with projection to check up to 100 items in a single request. Missing items are simply omitted from the response rather than returned as `null`. When DynamoDB is under load, the response may be partial: the implementation handles `UnprocessedKeys` via a retry loop with exponential backoff.
 
-* **Method:** `Query` with `Limit(1)`.
-* **Use Case:** Efficiently checks if *any* item exists in a partition (collection) without reading the whole list.
+```java
+Map<String, Boolean> result = new HashMap<>();
+ids.forEach(id -> result.put(id, false));
 
-## 💡 Performance Cheatsheet
+int attempts = 0;
 
-| Technique | Saves Bandwidth? | Saves RCU ($$$)? | Best For |
-| :--- | :---: | :---: | :--- |
-| **ProjectionExpression** | ✅ Yes | ❌ No | Large items, reducing network latency. |
-| **Eventual Consistency** | ❌ No | ✅ **Yes** | `exists` checks where delay is acceptable. |
-| **Keys-Only GSI** | ✅ Yes | ✅ **Yes** | Heavy `exists` checks on very large items. |
+do {
+    attempts++;
+    BatchGetItemResponse response = dynamoDbClient.batchGetItem(request);
 
-## 🚀 Best Practices
+    var foundItems = response.responses().getOrDefault(POSTS, List.of());
+    foundItems.forEach(item -> result.put(item.get(ID).s(), true));
 
-1. **Use Eventual Consistency:**
-    For existence checks, you rarely need Strong Consistency. Set `.consistentRead(false)` to halve your RCU bill.
+    if (response.hasUnprocessedKeys() && !response.unprocessedKeys().isEmpty()) {
+        request = request.toBuilder()
+                         .requestItems(response.unprocessedKeys())
+                         .build();
+        backoff(attempts);
+    } else {
+        break;
+    }
+} while (attempts < 5);
+```
 
-    ```java
-    GetItemRequest.builder().consistentRead(false)...
-    ```
+### 4. `hasKeywordsByGetItem`
 
-2. **Handle Batch Throttling:**
-    `BatchGetItem` may return partial results. Always check `response.unprocessedKeys()` and retry those specific keys.
+Uses `GetItem` to fetch only the `keywords` attribute and checks whether it exists and contains data. Sets `consistentRead(false)` to halve the RCU cost.
 
-3. **Global Secondary Indexes (GSI):**
-    If your items are massive (e.g., >4KB), create a **KEYS_ONLY GSI**. Reading from the index is much cheaper than reading from the main table with a projection.
+```java
+GetItemRequest request = GetItemRequest.builder()
+        .tableName(POSTS)
+        .key(buildKey(subreddit, id))
+        .projectionExpression(KEYWORDS)
+        .consistentRead(false)
+        .build();
+
+GetItemResponse response = dynamoDbClient.getItem(request);
+
+if (!response.hasItem()) return false;
+
+AttributeValue keywords = response.item().get(KEYWORDS);
+return keywords != null && keywords.hasL() && !keywords.l().isEmpty();
+```
+
+### 5. `hasKeywords`
+
+Alternative to `hasKeywordsByGetItem` using a `Query` with a `FilterExpression` (`size(keywords) > 0`). More flexible for complex conditions, but the filter is applied **after** the read, so RCU consumption is the same.
+
+```java
+QueryRequest request = QueryRequest.builder()
+        .tableName(POSTS)
+        .keyConditionExpression("subreddit = :subVal AND id = :idVal")
+        .filterExpression("size(keywords) > :zero")
+        .expressionAttributeValues(values)
+        .projectionExpression("id")
+        .limit(1)
+        .build();
+
+QueryResponse response = dynamoDbClient.query(request);
+return response.count() > 0;
+```
+
+### 6. `hasPostsForSubreddit`
+
+Uses a `Query` with `Limit(1)` to check if any item exists in a given partition. This avoids reading the full list of items for that partition key.
+
+```java
+QueryRequest request = QueryRequest.builder()
+        .tableName(POSTS)
+        .keyConditionExpression("subreddit = :subVal")
+        .expressionAttributeValues(values)
+        .projectionExpression(SUBREDDIT)
+        .limit(1)
+        .build();
+
+QueryResponse response = dynamoDbClient.query(request);
+return response.count() > 0;
+```
+
+## Performance Cheatsheet
+
+| Technique                | Saves Bandwidth? |   Saves RCU?   | Best For                                    |
+|:-------------------------|:----------------:|:--------------:|:------------------------------------------  |
+| **ProjectionExpression** |       Yes        |       No       | Large items, reducing network latency.      |
+| **Eventual Consistency** |        No        | **Yes (-50%)** | Existence checks where delay is acceptable. |
+| **Keys-Only GSI**        |       Yes        | **Yes (-90%)** | Heavy existence checks on very large items. |
+
+## Running Locally
+
+1. Start DynamoDB Local:
+
+```bash
+docker compose up -d
+```
+
+2. Create the table:
+
+```bash
+./create-table.sh
+```
+
+3. Run the application:
+
+```bash
+./gradlew run
+```
+
+The application starts on port `8082`. Set `app.data-generator.enabled=true` in `application.properties` to generate sample data on startup.
+
+## API Endpoints
+
+| Method | Path                                             | Description                               |
+|:-------|:-------------------------------------------------|:------------------------------------------|
+| `GET`  | `/post/projection/{subreddit}/exists?id=`        | Existence check with projection           |
+| `GET`  | `/post/get-item/{subreddit}/exists?id=`          | Existence check with full GetItem         |
+| `POST` | `/post/batch-exists/{subreddit}`                 | Batch existence check (body: list of ids) |
+| `GET`  | `/post/projection/{subreddit}/has-posts`         | Check if subreddit has any posts          |
+| `GET`  | `/post/{id}/has-keywords?subreddit=`             | Check keywords via Query                  |
+| `GET`  | `/post/{id}/has-keywords-by-get-item?subreddit=` | Check keywords via GetItem                |
