@@ -40,11 +40,11 @@ A proof-of-concept Spring Boot application demonstrating a database-driven workf
 
 ## Domain Model
 
-- **Chain** — logical workflow definition (e.g., ORDER_PROCESSING)
-- **Step** — reusable processing unit (e.g., validateOrder, processPayment)
-- **ChainConfiguration** — named pipeline variant with its own step ordering
-- **ChainStep** — step binding within a config, with `nextStepOnSuccess` / `nextStepOnFailure` routing
-- **ChainStatus** — reference status (ACTIVE, SUSPENDED, ENABLED)
+- **Chain**: logical workflow definition (e.g., ORDER_PROCESSING)
+- **Step**: reusable processing unit (e.g., validateOrder, processPayment)
+- **ChainConfiguration**: named pipeline variant with its own step ordering
+- **ChainStep**: step binding within a config, with `nextStepOnSuccess` / `nextStepOnFailure` routing
+- **ChainStatus**: reference status (ACTIVE, SUSPENDED, ENABLED)
 
 ## Pre-Seeded Pipelines
 

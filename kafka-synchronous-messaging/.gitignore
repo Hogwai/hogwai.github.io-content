@@ -1,0 +1,19 @@
+# ── Build ──────────────────────────────────────────
+target/
+
+# ── IDE (check project files into VCS only if needed) ──
+.classpath
+.project
+.settings/
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+
+# ── OS ─────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── Logs ───────────────────────────────────────────
+*.log

@@ -14,10 +14,10 @@ import java.util.regex.Pattern;
 @Fork(1)
 public class PatternQuoteBenchmark {
 
-    // Input that does NOT contain regex metacharacters — best case for unquoted
+    // Input that does NOT contain regex metacharacters, best case for unquoted
     private static final String SAFE_INPUT = "hello123";
 
-    // Input that contains regex metacharacters — will break the pattern if unquoted
+    // Input that contains regex metacharacters, will break the pattern if unquoted
     private static final String DANGEROUS_INPUT = "hello.world (test) [1]";
 
     // Pre-compiled patterns (compile cost excluded from matching benchmarks)
@@ -26,7 +26,7 @@ public class PatternQuoteBenchmark {
     private static final Pattern QUOTED_DANGEROUS = Pattern.compile(".*" + Pattern.quote(DANGEROUS_INPUT) + ".*");
 
     // Note: UNQUOTED_DANGEROUS would be semantically different (DANGEROUS_INPUT contains regex metacharacters),
-    // so we don't benchmark matching with it — the behavior would differ, not just performance.
+    // so we don't benchmark matching with it, the behavior would differ, not just performance.
 
     private String matchingInput;
     private String nonMatchingInput;
@@ -66,7 +66,7 @@ public class PatternQuoteBenchmark {
     // --- Runtime matching benchmarks (pre-compiled patterns) ---
 
     /**
-     * Matching with a quoted-safe pattern — matching against matching input
+     * Matching with a quoted-safe pattern, matching against matching input
      */
     @Benchmark
     public void quotedSafeMatchingMatch(Blackhole bh) {
@@ -74,7 +74,7 @@ public class PatternQuoteBenchmark {
     }
 
     /**
-     * Matching with an unquoted-safe pattern — matching against matching input
+     * Matching with an unquoted-safe pattern, matching against matching input
      */
     @Benchmark
     public void unquotedSafeMatchingMatch(Blackhole bh) {
@@ -82,7 +82,7 @@ public class PatternQuoteBenchmark {
     }
 
     /**
-     * Matching with a quoted-safe pattern — matching against non-matching input
+     * Matching with a quoted-safe pattern, matching against non-matching input
      */
     @Benchmark
     public void quotedSafeMatchingNoMatch(Blackhole bh) {
@@ -90,7 +90,7 @@ public class PatternQuoteBenchmark {
     }
 
     /**
-     * Matching with a quoted-dangerous pattern — matching against input containing dots and parens
+     * Matching with a quoted-dangerous pattern, matching against input containing dots and parens
      */
     @Benchmark
     public void quotedDangerousMatching(Blackhole bh) {

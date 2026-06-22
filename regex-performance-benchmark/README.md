@@ -94,7 +94,7 @@ Benchmarks run on: JDK 25.0.3 (OpenJDK 64-Bit Server VM), 1 fork, 3 warmup itera
 | `IdExtractionBenchmark.streamRegex`     | 1000  | avgt | 5   | 32,968.0      | ± 751.6       |
 | `IdExtractionBenchmark.streamRegex`     | 10000 | avgt | 5   | 346,222.6     | ± 4,993.4     |
 
-**Takeaway:** Manual `lastIndexOf`/`substring` (streamFastSplit) is the fastest extraction method — ~2.7x faster than `String.split()` and ~3.4x faster than regex. The gap narrows at larger sizes as stream overhead is amortized.
+**Takeaway:** Manual `lastIndexOf`/`substring` (streamFastSplit) is the fastest extraction method, ~2.7x faster than `String.split()` and ~3.4x faster than regex. The gap narrows at larger sizes as stream overhead is amortized.
 
 ### Capturing Groups
 
@@ -106,7 +106,7 @@ Benchmarks run on: JDK 25.0.3 (OpenJDK 64-Bit Server VM), 1 fork, 3 warmup itera
 | `CapturingGroupsBenchmark.namedGroupExtraction`       | avgt | 10  | 64,973.6      | ± 549.2       |
 | `CapturingGroupsBenchmark.nonCapturingWithExtraction` | avgt | 10  | 32,142.5      | ± 219.5       |
 
-**Takeaway:** On modern JDK, unused capturing groups incur almost no overhead — the JIT can optimize them away. However, when extraction is needed, named group access is ~2x slower than positional due to the HashMap lookup. Manual extraction after a non-capturing match performs similarly to positional group extraction.
+**Takeaway:** On modern JDK, unused capturing groups incur almost no overhead, the JIT can optimize them away. However, when extraction is needed, named group access is ~2x slower than positional due to the HashMap lookup. Manual extraction after a non-capturing match performs similarly to positional group extraction.
 
 ### Matching Performance & Possessive Quantifiers
 
@@ -118,7 +118,7 @@ Benchmarks run on: JDK 25.0.3 (OpenJDK 64-Bit Server VM), 1 fork, 3 warmup itera
 | `PossessiveQuantifierBenchmark.atomicGroupFix`           | avgt | 10  | 23.0          | ± 0.8         |
 | `PossessiveQuantifierBenchmark.possessiveFix`            | avgt | 10  | 28.2          | ± 0.4         |
 
-**Takeaway:** Possessive quantifiers are ~1.8x faster for suffix matching on non-matching input. Catastrophic backtracking is ~57x slower than the atomic/possessive fix — and the gap grows exponentially with input length.
+**Takeaway:** Possessive quantifiers are ~1.8x faster for suffix matching on non-matching input. Catastrophic backtracking is ~57x slower than the atomic/possessive fix, and the gap grows exponentially with input length.
 
 ### Pattern.quote()
 
@@ -145,7 +145,7 @@ Benchmarks run on: JDK 25.0.3 (OpenJDK 64-Bit Server VM), 1 fork, 3 warmup itera
 | `ModernPatternAPIBenchmark.asMatchPredicate`     | avgt | 10  | 9,780.0       | ± 53.8        |
 | `ModernPatternAPIBenchmark.asPredicateFind`      | avgt | 10  | 14,391.9      | ± 199.8       |
 
-**Takeaway:** `splitAsStream()` is slightly slower than `split()` when consuming all tokens — the stream overhead offsets the lazy allocation benefit. `asMatchPredicate()` is slightly slower than a raw lambda (stream wrapping overhead). These methods are about **convenience and clarity**, not raw speed.
+**Takeaway:** `splitAsStream()` is slightly slower than `split()` when consuming all tokens, the stream overhead offsets the lazy allocation benefit. `asMatchPredicate()` is slightly slower than a raw lambda (stream wrapping overhead). These methods are about **convenience and clarity**, not raw speed.
 
 ### Globbing vs Regex Path Matching
 
