@@ -1,0 +1,11 @@
+app:
+  kafka:
+    topic:
+      requests: sync-requests
+      results: sync-results
+      replies: sync-replies
+      dlq: sync-requests-dlq
+
+spring:
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}

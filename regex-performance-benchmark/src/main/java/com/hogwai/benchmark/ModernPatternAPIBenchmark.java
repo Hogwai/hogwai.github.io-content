@@ -48,7 +48,7 @@ public class ModernPatternAPIBenchmark {
     }
 
     /**
-     * splitAsStream() — lazy, no intermediate array
+     * splitAsStream() -> lazy, no intermediate array
      */
     @Benchmark
     public void splitToStream(Blackhole bh) {
@@ -56,7 +56,7 @@ public class ModernPatternAPIBenchmark {
     }
 
     /**
-     * split() + Arrays.stream() — the "old way" to get a stream
+     * split() + Arrays.stream() -> the "old way" to get a stream
      */
     @Benchmark
     public void splitThenArrayStream(Blackhole bh) {
@@ -77,7 +77,7 @@ public class ModernPatternAPIBenchmark {
     }
 
     /**
-     * asMatchPredicate() — full-string match predicate (Java 11+)
+     * asMatchPredicate() -> full-string match predicate (Java 11+)
      */
     @Benchmark
     public void asMatchPredicate(Blackhole bh) {
@@ -88,8 +88,8 @@ public class ModernPatternAPIBenchmark {
     }
 
     /**
-     * asPredicate() — substring match predicate (find, not matches).
-     * Semantic differs from the above — included for completeness.
+     * asPredicate() -> substring match predicate (find, not matches).
+     * Semantic differs from the above, included for completeness.
      */
     @Benchmark
     public void asPredicateFind(Blackhole bh) {

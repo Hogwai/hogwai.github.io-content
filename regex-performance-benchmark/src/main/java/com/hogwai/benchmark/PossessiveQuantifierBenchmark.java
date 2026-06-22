@@ -28,7 +28,7 @@ public class PossessiveQuantifierBenchmark {
 
     @Setup(Level.Trial)
     public void setUp() {
-        // Long string that does NOT end in .txt — forces greedy to backtrack
+        // Long string that does NOT end in .txt, forces greedy to backtrack
         nonMatchingLong = "a".repeat(500) + ".pdf";
 
         // Input that triggers catastrophic backtracking for (a+)+b
@@ -45,7 +45,7 @@ public class PossessiveQuantifierBenchmark {
     }
 
     /**
-     * Possessive .*+ fails immediately — no backtracking
+     * Possessive .*+ fails immediately, no backtracking
      */
     @Benchmark
     public void possessiveSuffixMatching(Blackhole bh) {
@@ -53,7 +53,7 @@ public class PossessiveQuantifierBenchmark {
     }
 
     /**
-     * (a+)+b on all-'a' input — exponential backtracking
+     * (a+)+b on all-'a' input, exponential backtracking
      */
     @Benchmark
     public void catastrophicBacktracking(Blackhole bh) {
@@ -61,7 +61,7 @@ public class PossessiveQuantifierBenchmark {
     }
 
     /**
-     * (?>a+)+b — atomic group prevents backtracking into the inner a+
+     * (?>a+)+b, atomic group prevents backtracking into the inner a+
      */
     @Benchmark
     public void atomicGroupFix(Blackhole bh) {
@@ -69,7 +69,7 @@ public class PossessiveQuantifierBenchmark {
     }
 
     /**
-     * a++b — possessive quantifier never gives back characters
+     * a++b, possessive quantifier never gives back characters
      */
     @Benchmark
     public void possessiveFix(Blackhole bh) {

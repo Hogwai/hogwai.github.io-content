@@ -36,7 +36,7 @@ public class CapturingGroupsBenchmark {
     }
 
     /**
-     * Capturing groups that we never extract — the engine still tracks them
+     * Capturing groups that we never extract, the engine still tracks them
      */
     @Benchmark
     public void capturingUnused(Blackhole bh) {
@@ -46,7 +46,7 @@ public class CapturingGroupsBenchmark {
     }
 
     /**
-     * Non-capturing groups — engine skips capture bookkeeping
+     * Non-capturing groups, engine skips capture bookkeeping
      */
     @Benchmark
     public void nonCapturing(Blackhole bh) {
@@ -70,7 +70,7 @@ public class CapturingGroupsBenchmark {
     }
 
     /**
-     * Extraction via named group("name"), group("id") — same internal storage,
+     * Extraction via named group("name"), group("id"), same internal storage,
      * minor HashMap lookup overhead
      */
     @Benchmark
@@ -85,7 +85,7 @@ public class CapturingGroupsBenchmark {
     }
 
     /**
-     * Both matches() and extraction — isolates the full cost of captures
+     * Both matches() and extraction, isolates the full cost of captures
      */
     @Benchmark
     public void nonCapturingWithExtraction(Blackhole bh) {

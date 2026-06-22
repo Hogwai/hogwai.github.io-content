@@ -53,7 +53,7 @@ SELECT 10, 'archiveOrder',     'Archive completed order records'
 WHERE NOT EXISTS (SELECT 1 FROM ts_step WHERE stp_id = 10);
 
 -- ============================================================
--- Seed: Configuration 1 — Standard Order
+-- Seed: Configuration 1 -> Standard Order
 -- ============================================================
 INSERT INTO ts_chain_config (chn_cfg_id, chn_cfg_name, chn_cfg_description, chn_sts_id, chn_id)
 SELECT 1, 'standard-order', 'Standard order processing pipeline', 1, 1
@@ -77,7 +77,7 @@ INSERT INTO ts_chain_step (chn_stp_id, chn_stp_next_step_on_success, chn_stp_nex
 SELECT 8,  NULL,               NULL,             1, 1, 10 WHERE NOT EXISTS (SELECT 1 FROM ts_chain_step WHERE chn_stp_id = 8);
 
 -- ============================================================
--- Seed: Configuration 2 — Premium Order (with discount step)
+-- Seed: Configuration 2 -> Premium Order (with discount step)
 -- ============================================================
 INSERT INTO ts_chain_config (chn_cfg_id, chn_cfg_name, chn_cfg_description, chn_sts_id, chn_id)
 SELECT 2, 'premium-order', 'Premium order processing with discount application', 1, 1
@@ -103,7 +103,7 @@ INSERT INTO ts_chain_step (chn_stp_id, chn_stp_next_step_on_success, chn_stp_nex
 SELECT 17, NULL,               NULL,             1, 2, 10 WHERE NOT EXISTS (SELECT 1 FROM ts_chain_step WHERE chn_stp_id = 17);
 
 -- ============================================================
--- Seed: Configuration 3 — Flagged Order (escalation path)
+-- Seed: Configuration 3 -> Flagged Order (escalation path)
 -- ============================================================
 INSERT INTO ts_chain_config (chn_cfg_id, chn_cfg_name, chn_cfg_description, chn_sts_id, chn_id)
 SELECT 3, 'flagged-order', 'Order flagged for manual review', 1, 1
