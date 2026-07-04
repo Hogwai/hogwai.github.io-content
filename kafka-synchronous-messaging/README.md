@@ -59,15 +59,19 @@ if (future != null) future.complete(response);       // 4. complete matching fut
 
 **Flow:**
 
-```
-Sender                    Kafka                      Remote Service
-  │                        │                            │
-  ├── put(requestId, CF) ──┤                            │
-  ├── send(request) ───────┼──────────────────────────► │
-  │   .get(timeout) ─┐     │    (results topic)          │
-  │                  │     │                             ├── process request
-  │◄──────────── complete ◄─┼────────────────────────────┘
-  │                        │
+```mermaid
+sequenceDiagram
+    participant Sender
+    participant Kafka
+    participant RemoteService as Remote Service
+
+    Sender->>Sender: put(requestId, CF)
+    Sender->>Kafka: send(request)
+    Kafka->>RemoteService: request
+    RemoteService->>RemoteService: process request
+    RemoteService-->>Kafka: response (results topic)
+    Kafka-->>Sender: complete
+    Note over Sender: .get(timeout)
 ```
 
 **What you manage manually:**
@@ -92,19 +96,19 @@ return response.value();
 
 **Flow:**
 
-```
-Sender                               Kafka                       Remote Service
-  │                                   │                             │
-  ├── sendAndReceive(record) ────────┼───────────────────────────► │
-  │   ├── adds REPLY_TOPIC header     │                             ├── reads REPLY_TOPIC header
-  │   ├── adds CORRELATION_ID header  │                             ├── copies CORRELATION_ID
-  │   └── starts reply consumer      │                             └── sends reply
-  │                                   │                             │
-  │   .get(timeout) ─┐               │    (reply topic)             │
-  │◄──────────────────────────────────┼─────────────────────────────┘
-  │                  │               │
-  │ template correlates by            │
-  │ CORRELATION_ID header             │
+```mermaid
+sequenceDiagram
+    participant S as Sender
+    participant K as Kafka
+    participant R as Remote Service
+
+    S->>K: sendAndReceive(record)
+    Note over S: adds REPLY_TOPIC header<br/>adds CORRELATION_ID header<br/>starts reply consumer
+    K->>R: record
+    R->>R: reads REPLY_TOPIC header<br/>copies CORRELATION_ID
+    R-->>K: reply (reply topic)
+    K-->>S: response
+    Note over S: .get(timeout)<br/>template correlates by<br/>CORRELATION_ID header
 ```
 
 **What is handled automatically:**

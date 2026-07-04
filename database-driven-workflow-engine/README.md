@@ -4,38 +4,22 @@ A proof-of-concept Spring Boot application demonstrating a database-driven workf
 
 ## Architecture
 
-```
-                  ┌──────────────────────────┐
-                  │   ChainConfiguration     │
-                  │   Controller (REST)      │
-                  └──────────┬───────────────┘
-                             │ POST /invoke?config=X&orderId=Y
-                             ▼
-                  ┌──────────────────────────┐
-                  │   ConfigurableChain      │
-                  │   (Spring Batch Job)     │
-                  └──────────┬───────────────┘
-                             │ start
-                             ▼
-                  ┌──────────────────────────┐
-                  │ ChainInformationTasklet  │
-                  │ (logs config metadata)   │
-                  └──────────┬───────────────┘
-                             │ next
-                             ▼
-                  ┌──────────────────────────┐
-                  │   ChainStepDecider       │◄────────────┐
-                  │   (reads DB for next     │             │
-                  │    step based on result) │             │
-                  └──────────┬───────────────┘             │
-                             │ route to step               │
-                             ▼                             │
-                  ┌──────────────────────────┐             │
-                  │ OrderProcessingTasklet   │──success───►┤
-                  │ (realistic order step)   │──failure───►┤
-                  └──────────────────────────┘             │
-                                                           │
-                  (continues until nextStepOnSuccess=null) │
+```mermaid
+flowchart TD
+    CC["ChainConfiguration<br/>Controller (REST)"]
+    CF["ConfigurableChain<br/>(Spring Batch Job)"]
+    CI["ChainInformationTasklet<br/>(logs config metadata)"]
+    CSD{"ChainStepDecider<br/>(reads DB for next step<br/>based on result)"}
+    OPT["OrderProcessingTasklet<br/>(realistic order step)"]
+    END([END])
+
+    CC -->|"POST /invoke?config=X&orderId=Y"| CF
+    CF -->|start| CI
+    CI -->|next| CSD
+    CSD -->|route to step| OPT
+    OPT -->|success| CSD
+    OPT -->|failure| CSD
+    CSD -->|"nextStepOnSuccess=null"| END
 ```
 
 ## Domain Model
