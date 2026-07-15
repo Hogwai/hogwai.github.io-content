@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package com.hogwai.perf.common.proto;
+
+option java_package = "com.hogwai.perf.common.proto";
+option java_multiple_files = true;
+
+service ProductService {
+    rpc GetProducts (GetProductsRequest) returns (ProductListResponse);
+}
+
+message GetProductsRequest {
+    int32 page = 1;
+    int32 page_size = 2;
+}
+
+message ProductResponse {
+    int64 id = 1;
+    string name = 2;
+    string description = 3;
+    double price = 4;
+    int32 stock_quantity = 5;
+}
+
+message ProductListResponse {
+    repeated ProductResponse products = 1;
+}

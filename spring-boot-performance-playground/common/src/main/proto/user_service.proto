@@ -1,0 +1,39 @@
+syntax = "proto3";
+
+package com.hogwai.perf.common.proto;
+
+option java_package = "com.hogwai.perf.common.proto";
+option java_multiple_files = true;
+
+service UserService {
+    rpc GetUser (GetUserRequest) returns (UserResponse);
+    rpc GetDashboard (GetDashboardRequest) returns (DashboardResponse);
+}
+
+message GetUserRequest {
+    int64 id = 1;
+}
+
+message UserResponse {
+    int64 id = 1;
+    string name = 2;
+    string email = 3;
+    int32 loyalty_points = 4;
+    int32 order_count = 5;
+}
+
+message GetDashboardRequest {
+    int64 user_id = 1;
+}
+
+message OrderSummary {
+    int64 id = 1;
+    string status = 2;
+    double total_amount = 3;
+}
+
+message DashboardResponse {
+    UserResponse user = 1;
+    repeated OrderSummary recent_orders = 2;
+    int32 loyalty_points = 3;
+}

@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package com.hogwai.perf.common.proto;
+
+option java_package = "com.hogwai.perf.common.proto";
+option java_multiple_files = true;
+
+import "google/protobuf/empty.proto";
+
+service StatsService {
+    rpc GetStats (google.protobuf.Empty) returns (StatsResponse);
+}
+
+message StatsResponse {
+    int64 total_users = 1;
+    int64 total_orders = 2;
+    int64 total_products = 3;
+    double average_order_value = 4;
+}

@@ -1,0 +1,115 @@
+services:
+  postgres:
+    container_name: spring-boot-performance-postgres
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: perfdb
+      POSTGRES_USER: perfuser
+      POSTGRES_PASSWORD: perfpass
+    ports: ["5432:5432"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U perfuser -d perfdb"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  redis:
+    container_name: spring-boot-performance-redis
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  baseline:
+    container_name: spring-boot-performance-baseline
+    build:
+      dockerfile: Dockerfile.baseline
+      context: .
+    ports: ["8080:8080"]
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/perfdb
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/actuator/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  optimized:
+    container_name: spring-boot-performance-optimized
+    build:
+      dockerfile: Dockerfile.optimized
+      context: .
+    ports: ["8081:8081"]
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/perfdb
+      SPRING_DATA_REDIS_HOST: redis
+      JAVA_OPTS: "-XX:+UseZGC -XX:MaxGCPauseMillis=100 -Xms2G -Xmx2G -XX:+AlwaysPreTouch -XX:+UseCompressedOops"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8081/actuator/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  nginx:
+    container_name: spring-boot-performance-nginx
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - nginx-logs:/var/log/nginx
+    depends_on:
+      baseline:
+        condition: service_healthy
+      optimized:
+        condition: service_healthy
+
+  prometheus:
+    container_name: spring-boot-performance-prometheus
+    image: prom/prometheus:v3.2.1
+    ports: ["9090:9090"]
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.enable-remote-write-receiver'
+    depends_on:
+      baseline:
+        condition: service_healthy
+      optimized:
+        condition: service_healthy
+
+  grafana:
+    container_name: spring-boot-performance-grafana
+    image: grafana/grafana:11.5.2
+    ports: ["3000:3000"]
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=perfadmin
+      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/etc/grafana/dashboards/spring-boot-overview.json
+      - GF_INSTALL_PLUGINS=
+    volumes:
+      - ./monitoring/grafana-datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
+      - ./monitoring/dashboards:/etc/grafana/dashboards:ro
+    depends_on:
+      prometheus:
+        condition: service_started
+
+volumes:
+  nginx-logs:
