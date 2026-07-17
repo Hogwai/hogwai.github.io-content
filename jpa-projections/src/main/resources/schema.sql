@@ -1,0 +1,20 @@
+CREATE TABLE IF NOT EXISTS movies (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
+    release_year INTEGER NOT NULL,
+    genre VARCHAR(100) NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS actors (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    first_name VARCHAR(100) NOT NULL,
+    last_name VARCHAR(100) NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS movies_actors (
+    movie_id BIGINT NOT NULL,
+    actor_id BIGINT NOT NULL,
+    PRIMARY KEY (movie_id, actor_id),
+    FOREIGN KEY (movie_id) REFERENCES movies(id),
+    FOREIGN KEY (actor_id) REFERENCES actors(id)
+);

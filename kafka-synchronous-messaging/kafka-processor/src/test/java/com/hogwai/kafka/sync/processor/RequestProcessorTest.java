@@ -51,7 +51,7 @@ class RequestProcessorTest {
     }
 
     @Test
-    @DisplayName("Custom pattern: request → sync-results response")
+    @DisplayName("Custom pattern: request -> sync-results response")
     void customPattern_shouldRespondOnResultsTopic() throws Exception {
         var request = new Request("Processor-Test-1");
         kafkaTemplate.send("sync-requests", request.requestId(), request);
@@ -67,15 +67,15 @@ class RequestProcessorTest {
     }
 
     @Test
-    @DisplayName("Replying pattern: request with REPLY_TOPIC header → response on reply topic")
+    @DisplayName("Replying pattern: request with REPLY_TOPIC header -> response on reply topic")
     void replyingPattern_shouldRespondOnReplyTopic() throws Exception {
         var request = new Request("Processor-Reply-1");
         var replyTopic = "sync-replies";
 
-        var record = new ProducerRecord<String, Object>("sync-requests", request.requestId(), request);
-        record.headers().add(new RecordHeader(KafkaHeaders.REPLY_TOPIC, replyTopic.getBytes(StandardCharsets.UTF_8)));
-        record.headers().add(new RecordHeader(KafkaHeaders.CORRELATION_ID, request.requestId().getBytes(StandardCharsets.UTF_8)));
-        kafkaTemplate.send(record);
+        var producerRecord = new ProducerRecord<String, Object>("sync-requests", request.requestId(), request);
+        producerRecord.headers().add(new RecordHeader(KafkaHeaders.REPLY_TOPIC, replyTopic.getBytes(StandardCharsets.UTF_8)));
+        producerRecord.headers().add(new RecordHeader(KafkaHeaders.CORRELATION_ID, request.requestId().getBytes(StandardCharsets.UTF_8)));
+        kafkaTemplate.send(producerRecord);
 
         Response response = pollResponse(replyTopic, request.requestId(), 15);
 
@@ -88,7 +88,7 @@ class RequestProcessorTest {
     }
 
     @Test
-    @DisplayName("Custom pattern failure: failed request → DLQ + FAILURE response")
+    @DisplayName("Custom pattern failure: failed request -> DLQ + FAILURE response")
     void customPatternFailure_shouldSendToDlqAndReturnFailure() throws Exception {
         var request = new Request("fail-custom-test");
         kafkaTemplate.send("sync-requests", request.requestId(), request);
@@ -107,15 +107,15 @@ class RequestProcessorTest {
     }
 
     @Test
-    @DisplayName("Replying pattern failure: failed request → DLQ + FAILURE response on reply topic")
+    @DisplayName("Replying pattern failure: failed request -> DLQ + FAILURE response on reply topic")
     void replyingPatternFailure_shouldSendToDlqAndReturnFailure() throws Exception {
         var request = new Request("fail-reply-test");
         var replyTopic = "sync-replies";
 
-        var record = new ProducerRecord<String, Object>("sync-requests", request.requestId(), request);
-        record.headers().add(new RecordHeader(KafkaHeaders.REPLY_TOPIC, replyTopic.getBytes(StandardCharsets.UTF_8)));
-        record.headers().add(new RecordHeader(KafkaHeaders.CORRELATION_ID, request.requestId().getBytes(StandardCharsets.UTF_8)));
-        kafkaTemplate.send(record);
+        var producerRecord = new ProducerRecord<String, Object>("sync-requests", request.requestId(), request);
+        producerRecord.headers().add(new RecordHeader(KafkaHeaders.REPLY_TOPIC, replyTopic.getBytes(StandardCharsets.UTF_8)));
+        producerRecord.headers().add(new RecordHeader(KafkaHeaders.CORRELATION_ID, request.requestId().getBytes(StandardCharsets.UTF_8)));
+        kafkaTemplate.send(producerRecord);
 
         Response response = pollResponse(replyTopic, request.requestId(), 15);
         Request dlqRequest = pollRequest("sync-requests-dlq", request.requestId(), 5);
@@ -139,8 +139,8 @@ class RequestProcessorTest {
 
             while (System.currentTimeMillis() < deadline && !future.isDone()) {
                 var records = consumer.poll(Duration.ofSeconds(1));
-                for (var record : records) {
-                    var response = record.value();
+                for (var consumerRecord : records) {
+                    var response = consumerRecord.value();
                     if (response != null && requestId.equals(response.requestId())) {
                         future.complete(response);
                         return future.get(1, TimeUnit.SECONDS);
@@ -186,8 +186,8 @@ class RequestProcessorTest {
 
             while (System.currentTimeMillis() < deadline && !future.isDone()) {
                 var records = consumer.poll(Duration.ofSeconds(1));
-                for (var record : records) {
-                    var request = record.value();
+                for (var consumerRecord : records) {
+                    var request = consumerRecord.value();
                     if (request != null && requestId.equals(request.requestId())) {
                         future.complete(request);
                         return future.get(1, TimeUnit.SECONDS);

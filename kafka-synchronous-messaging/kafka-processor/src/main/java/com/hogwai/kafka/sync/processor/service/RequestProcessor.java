@@ -37,8 +37,8 @@ public class RequestProcessor {
             groupId = "request-processor",
             containerFactory = "kafkaListenerContainerFactory"
     )
-    public void onRequest(ConsumerRecord<String, Request> record) {
-        Request request = record.value();
+    public void onRequest(ConsumerRecord<String, Request> consumerRecord) {
+        Request request = consumerRecord.value();
         log.info("=== Received request [{}] payload '{}'", request.requestId(), request.payload());
 
         try {
@@ -54,14 +54,14 @@ public class RequestProcessor {
                     100L
             );
 
-            sendResponse(record, response);
+            sendResponse(consumerRecord, response);
 
         } catch (Exception e) {
             log.error("Failed to process request [{}]: {}", request.requestId(), e.getMessage(), e);
 
             // Send the failed request to the DLQ
-            log.info("    → Sending to DLQ topic '{}'", dlqTopic);
-            // Fire-and-forget — acceptable for showcase. In production, handle send failure.
+            log.info("    -> Sending to DLQ topic '{}'", dlqTopic);
+            // Fire-and-forget
             kafkaTemplate.send(dlqTopic, request.requestId(), request);
 
             // Send a failure response so the sender doesn't time out
@@ -71,27 +71,27 @@ public class RequestProcessor {
                     "FAILURE",
                     0L
             );
-            sendResponse(record, errorResponse);
+            sendResponse(consumerRecord, errorResponse);
         }
     }
 
-    private void sendResponse(ConsumerRecord<String, Request> record, Response response) {
-        Header replyTopicHeader = record.headers().lastHeader(KafkaHeaders.REPLY_TOPIC);
+    private void sendResponse(ConsumerRecord<String, Request> consumerRecord, Response response) {
+        Header replyTopicHeader = consumerRecord.headers().lastHeader(KafkaHeaders.REPLY_TOPIC);
 
         if (replyTopicHeader != null) {
             // --- ReplyingKafkaTemplate flow ---
             String replyTopic = new String(replyTopicHeader.value(), StandardCharsets.UTF_8);
-            log.info("    → REPLY_TOPIC found, replying to '{}'", replyTopic);
+            log.info("    -> REPLY_TOPIC found, replying to '{}'", replyTopic);
 
             var reply = new ProducerRecord<String, Object>(replyTopic, response.requestId(), response);
-            Header correlationId = record.headers().lastHeader(KafkaHeaders.CORRELATION_ID);
+            Header correlationId = consumerRecord.headers().lastHeader(KafkaHeaders.CORRELATION_ID);
             if (correlationId != null) {
                 reply.headers().add(correlationId);
             }
             kafkaTemplate.send(reply);
         } else {
             // --- Custom approach flow ---
-            log.info("    → No REPLY_TOPIC, replying to fixed topic '{}'", resultsTopic);
+            log.info("    -> No REPLY_TOPIC, replying to fixed topic '{}'", resultsTopic);
             kafkaTemplate.send(resultsTopic, response.requestId(), response);
         }
     }
