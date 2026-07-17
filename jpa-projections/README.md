@@ -23,24 +23,24 @@ lightweight read-only structure.
 
 ### Available endpoints
 
-| Endpoint | Technique |
-|---|---|
-| `GET /api/movies?genre=Sci-Fi` | Interface Closed |
-| `GET /api/movies/paged?genre=Sci-Fi&page=0&size=2` | Interface Closed + pagination |
-| `GET /api/movies/with-actors?genre=Sci-Fi` | Interface + JOIN FETCH |
-| `GET /api/movies/with-actors/entity-graph?genre=Sci-Fi` | Interface + @EntityGraph |
-| `GET /api/movies/with-actors/n-plus-one?genre=Sci-Fi` | ⚠️ N+1 demonstration |
-| `GET /api/actors?lastName=Freeman` | Interface + default method |
-| `GET /api/movies/search?title=The` | Record DTO (derived query) |
-| `GET /api/movies/after?year=2000` | Record DTO (@Query constructor) |
-| `GET /api/movies/stats/genre` | Aggregation record |
-| `GET /api/movies/dynamic?genre=Sci-Fi&projection=dto` | Dynamic projection |
-| `GET /api/movies/native?genre=Sci-Fi` | Native + interface (aliases) |
-| `GET /api/movies/native/dto?genre=Sci-Fi` | Native + DTO (SqlResultSetMapping) |
-| `GET /api/movies/tuples?genre=Sci-Fi` | Tuple projection |
-| `GET /api/movies/spec?genre=Sci-Fi&minYear=2000` | Specifications + fluent API |
-| `GET /api/movies/1/detail` | Hierarchical DTO (service assembly) |
-| `GET /api/actors/1/movies` | Actor with movies (two-query assembly) |
+| Endpoint                                                | Technique                              |
+|---------------------------------------------------------|----------------------------------------|
+| `GET /api/movies?genre=Sci-Fi`                          | Interface Closed                       |
+| `GET /api/movies/paged?genre=Sci-Fi&page=0&size=2`      | Interface Closed + pagination          |
+| `GET /api/movies/with-actors?genre=Sci-Fi`              | Interface + JOIN FETCH                 |
+| `GET /api/movies/with-actors/entity-graph?genre=Sci-Fi` | Interface + @EntityGraph               |
+| `GET /api/movies/with-actors/n-plus-one?genre=Sci-Fi`   | N+1 demonstration                      |
+| `GET /api/actors?lastName=Freeman`                      | Interface + default method             |
+| `GET /api/movies/search?title=The`                      | Record DTO (derived query)             |
+| `GET /api/movies/after?year=2000`                       | Record DTO (@Query constructor)        |
+| `GET /api/movies/stats/genre`                           | Aggregation record                     |
+| `GET /api/movies/dynamic?genre=Sci-Fi&projection=dto`   | Dynamic projection                     |
+| `GET /api/movies/native?genre=Sci-Fi`                   | Native + interface (aliases)           |
+| `GET /api/movies/native/dto?genre=Sci-Fi`               | Native + DTO (SqlResultSetMapping)     |
+| `GET /api/movies/tuples?genre=Sci-Fi`                   | Tuple projection                       |
+| `GET /api/movies/spec?genre=Sci-Fi&minYear=2000`        | Specifications + fluent API            |
+| `GET /api/movies/1/detail`                              | Hierarchical DTO (service assembly)    |
+| `GET /api/actors/1/movies`                              | Actor with movies (two-query assembly) |
 
 ## Domain
 
@@ -112,7 +112,11 @@ instead of returning unbounded collections.
 
 ---
 
-### 3a. Interface + Nested (`JOIN FETCH`)
+### 3. Nested Interface Projections
+
+Three ways to project an entity with its associated collection, each with different trade-offs.
+
+#### JOIN FETCH
 
 ```java
 public interface MovieWithActorsView {
@@ -154,7 +158,7 @@ WHERE m.genre = ?
 
 ---
 
-### 3b. Interface + Nested (`@EntityGraph`)
+#### @EntityGraph
 
 ```java
 @EntityGraph("Movie.withActors")
@@ -186,7 +190,7 @@ applies to multiple queries.
 
 ---
 
-### 3c. N+1 Demonstration (unsafe)
+#### N+1 Demonstration (unsafe)
 
 ```java
 @Query("SELECT m FROM Movie m WHERE m.genre = :genre")
@@ -589,9 +593,9 @@ enabled by default in the Spring Boot parent POM.
 |----|-------------------------------|------------------------|------------------------|-------------------------|
 | 1  | Interface Closed              | `MovieTitleView`       | Derived (optimised)    | Flat read-only view     |
 | 2  | Interface Closed + pagination | `Page<MovieTitleView>` | Derived + `Pageable`   | Paginated lists         |
-| 3a | Interface + JOIN FETCH        | `MovieWithActorsView`  | `@Query`               | Nested entities         |
-| 3b | Interface + @EntityGraph      | `MovieWithActorsView`  | Derived + annotation   | Reusable fetch strategy |
-| 3c | N+1 demo                      | `MovieWithActorsView`  | Without fetch          | Educational observe N+1 |
+| 3  | Interface + JOIN FETCH        | `MovieWithActorsView`  | `@Query`               | Nested entities         |
+|    | Interface + @EntityGraph      | `MovieWithActorsView`  | Derived + annotation   | Reusable fetch strategy |
+|    | N+1 demo                      | `MovieWithActorsView`  | Without fetch          | Educational observe N+1 |
 | 4  | Interface + default method    | `ActorNameView`        | Derived (optimised)    | Derived fields, no SpEL |
 | 5  | Record DTO (derived)          | `MovieTitleDto`        | Derived (rewritten)    | Simple DTO              |
 | 6  | Record DTO (@Query)           | `MovieTitleDto`        | JPQL constructor       | Complex WHERE/joins     |
