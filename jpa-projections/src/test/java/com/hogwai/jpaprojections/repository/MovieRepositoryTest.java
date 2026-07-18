@@ -5,6 +5,9 @@ import com.hogwai.jpaprojections.projection.GenreStat;
 import com.hogwai.jpaprojections.projection.MovieTitleDto;
 import com.hogwai.jpaprojections.projection.MovieTitleView;
 import com.hogwai.jpaprojections.projection.MovieWithActorsView;
+import com.hogwai.jpaprojections.projection.MovieWithLabelView;
+import com.hogwai.jpaprojections.projection.MovieTitleGenreDto;
+import com.hogwai.jpaprojections.projection.GenreStatDto;
 import jakarta.persistence.Tuple;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,6 +34,8 @@ class MovieRepositoryTest {
         assertThat(results).isNotEmpty();
         assertThat(results.getFirst().getId()).isNotNull();
         assertThat(results.getFirst().getTitle()).isNotBlank();
+        assertThat(results.getFirst().getGenre()).isPresent().hasValueSatisfying(
+                genre -> assertThat(genre).isEqualTo("Sci-Fi"));
     }
 
     @Test
@@ -99,6 +104,17 @@ class MovieRepositoryTest {
     }
 
     @Test
+    void countByGenreDto_usesPersistenceCreatorConstructor() {
+        List<GenreStatDto> stats = movieRepository.countByGenreDto();
+
+        assertThat(stats).isNotEmpty();
+        GenreStatDto sciFi = stats.stream()
+                .filter(s -> s.getGenre().equals("Sci-Fi"))
+                .findFirst().orElseThrow();
+        assertThat(sciFi.getMovieCount()).isEqualTo(3);
+    }
+
+    @Test
     void findByGenreNative_returnsInterfaceProjection() {
         List<MovieTitleView> results = movieRepository.findByGenreNative("Sci-Fi");
 
@@ -149,5 +165,24 @@ class MovieRepositoryTest {
 
         assertThat(results).isNotEmpty();
         assertThat(results.getFirst().title()).isNotBlank();
+    }
+
+    @Test
+    void findWithLabelByGenre_returnsOpenProjectionWithComputedLabel() {
+        List<MovieWithLabelView> results = movieRepository.findWithLabelByGenre("Sci-Fi");
+
+        assertThat(results).isNotEmpty();
+        assertThat(results.getFirst().getTitle()).isNotBlank();
+        assertThat(results.getFirst().getGenreLabel()).contains("[");
+        assertThat(results.getFirst().getGenreLabel()).endsWith("]");
+    }
+
+    @Test
+    void findTitleAndGenreByGenre_returnsMultiSelectRewrittenQuery() {
+        List<MovieTitleGenreDto> results = movieRepository.findTitleAndGenreByGenre("Sci-Fi");
+
+        assertThat(results).isNotEmpty();
+        assertThat(results.getFirst().title()).isNotBlank();
+        assertThat(results.getFirst().genre()).isEqualTo("Sci-Fi");
     }
 }

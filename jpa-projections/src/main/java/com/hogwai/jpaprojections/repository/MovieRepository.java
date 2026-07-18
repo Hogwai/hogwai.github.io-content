@@ -5,6 +5,9 @@ import com.hogwai.jpaprojections.projection.GenreStat;
 import com.hogwai.jpaprojections.projection.MovieTitleDto;
 import com.hogwai.jpaprojections.projection.MovieTitleView;
 import com.hogwai.jpaprojections.projection.MovieWithActorsView;
+import com.hogwai.jpaprojections.projection.MovieWithLabelView;
+import com.hogwai.jpaprojections.projection.MovieTitleGenreDto;
+import com.hogwai.jpaprojections.projection.GenreStatDto;
 import jakarta.persistence.Tuple;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -166,4 +169,45 @@ public interface MovieRepository extends JpaRepository<Movie, Long>,
             FROM Movie m WHERE m.genre = :genre
             """)
     List<Tuple> findTupleByGenre(@Param("genre") String genre);
+
+    /**
+     * Class-based DTO projection with {@code @PersistenceCreator} for multi-constructor disambiguation.
+     * <p>{@link GenreStatDto} is a POJO with two constructors: a no-arg constructor and a
+     * parameterised constructor annotated with {@code @PersistenceCreator}. Spring Data uses
+     * the annotated constructor to map query results.
+     *
+     * @return genre statistics ordered by count descending
+     */
+    @Query("""
+            SELECT new com.hogwai.jpaprojections.projection.GenreStatDto(m.genre, COUNT(m))
+            FROM Movie m
+            GROUP BY m.genre
+            ORDER BY COUNT(m) DESC
+            """)
+    List<GenreStatDto> countByGenreDto();
+
+    /**
+     * Multi-select query rewriting demonstration.
+     * <p>Spring Data automatically rewrites {@code SELECT m.title, m.genre FROM Movie m ...}
+     * to a JPQL constructor expression {@code SELECT new MovieTitleGenreDto(m.title, m.genre) ...}
+     * by matching constructor parameter names to the multi-select columns.
+     *
+     * @param genre the movie genre filter
+     * @return title and genre of matching movies as {@link MovieTitleGenreDto} records
+     */
+    @Query("SELECT m.title, m.genre FROM Movie m WHERE m.genre = :genre")
+    List<MovieTitleGenreDto> findTitleAndGenreByGenre(@Param("genre") String genre);
+
+    /**
+     * Open projection with {@code @Value} SpEL referencing a Spring bean.
+     * <p>The full Movie entity is loaded because open projections disable SELECT optimisation.
+     * The {@link MovieWithLabelView#getGenreLabel()} is computed by
+     * {@code com.hogwai.jpaprojections.helper.ProjectionHelper#formatGenreLabel(Movie)}
+     * via the expression {@code @projectionHelper.formatGenreLabel(target)}.
+     *
+     * @param genre the movie genre filter
+     * @return movies with a computed genre label
+     */
+    @Query("SELECT m FROM Movie m WHERE m.genre = :genre")
+    List<MovieWithLabelView> findWithLabelByGenre(@Param("genre") String genre);
 }
