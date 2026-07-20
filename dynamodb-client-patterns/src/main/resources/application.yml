@@ -1,0 +1,16 @@
+server:
+  port: 8080
+
+aws:
+  dynamodb:
+    endpoint-override: http://localhost:8000
+    region: eu-west-3
+    connection-timeout: 5000
+    socket-timeout: 10000
+    max-connections: 50
+    # Set to 'crt' to use AWS CRT HTTP client (recommended for production)
+    http-client: url-connection
+
+logging:
+  level:
+    com.hogwai.dynamodb.clients: INFO
