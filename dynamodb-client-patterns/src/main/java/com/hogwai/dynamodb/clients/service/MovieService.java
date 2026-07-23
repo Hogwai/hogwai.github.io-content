@@ -136,6 +136,12 @@ public class MovieService {
         return movies;
     }
 
+    /**
+     * Good: ProjectionExpression reduces network transfer and client-side memory,
+     * but does NOT reduce RCU. DynamoDB bills reads on the total item size before
+     * projection (up to 4 KB per read capacity unit). The byte estimate below
+     * reflects transferred bytes only.
+     */
     public List<Movie> projectionGood(String genre, List<String> fields) {
         var movies = enhanced.queryByGenreWithProjection(genre, fields);
         long bytes = movies.stream()
@@ -260,7 +266,7 @@ public class MovieService {
         movie.setTitle(newTitle);
         try {
             raw.updateUnconditional(movie);
-            log.info("{} Locking bad (unconditional): lost update risk — concurrent writes may overwrite each other",
+            log.info("{} Locking bad (unconditional): lost update risk, concurrent writes may overwrite each other",
                     METRIC_PREFIX);
             return true;
         } catch (Exception e) {

@@ -1,0 +1,7 @@
+aws:
+  dynamodb:
+    http-client: apache
+
+logging:
+  level:
+    com.hogwai.dynamodb.clients.demo: INFO

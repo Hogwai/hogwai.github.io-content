@@ -44,7 +44,7 @@ public class TableInitializer {
                                     .keySchema(
                                             KeySchemaElement.builder().attributeName("author").keyType(KeyType.HASH).build()
                                     )
-                                    .projection(_ -> Projection.builder().projectionType(ProjectionType.ALL).build())
+                                    .projection(Projection.builder().projectionType(ProjectionType.ALL).build())
                                     .build()
                     )
                     .billingMode(BillingMode.PAY_PER_REQUEST)

@@ -23,7 +23,7 @@ public class LockingController {
         return Map.of(
                 "method", "unconditional update (no version check)",
                 "updated", updated,
-                "note", "Lost update risk — concurrent writes may overwrite each other");
+                "note", "Lost update risk: concurrent writes may overwrite each other");
     }
 
     @PutMapping("/lock/good")

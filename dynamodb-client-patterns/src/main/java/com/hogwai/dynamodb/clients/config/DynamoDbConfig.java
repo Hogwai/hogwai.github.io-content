@@ -10,6 +10,8 @@ import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.core.retry.RetryMode;
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient;
 import software.amazon.awssdk.http.SdkHttpClient;
+import software.amazon.awssdk.http.apache.ApacheHttpClient;
+import software.amazon.awssdk.http.crt.AwsCrtHttpClient;
 import software.amazon.awssdk.http.urlconnection.UrlConnectionHttpClient;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
@@ -31,10 +33,28 @@ public class DynamoDbConfig {
         log.info("Configuring DynamoDB HTTP client: type={}, connectionTimeout={}ms, socketTimeout={}ms",
                 httpClientType, connectionTimeout, socketTimeout);
 
-        return UrlConnectionHttpClient.builder()
-                .connectionTimeout(Duration.ofMillis(connectionTimeout))
-                .socketTimeout(Duration.ofMillis(socketTimeout))
-                .build();
+        return switch (httpClientType) {
+            case "apache" -> ApacheHttpClient.builder()
+                    .connectionTimeout(Duration.ofMillis(connectionTimeout))
+                    .socketTimeout(Duration.ofMillis(socketTimeout))
+                    .build();
+            case "crt" -> AwsCrtHttpClient.builder()
+                    .connectionTimeout(Duration.ofMillis(connectionTimeout))
+                    // NOTE: AwsCrtHttpClient does not expose socketTimeout;
+                    // connection timeout is the primary tuning knob.
+                    .build();
+            case "url-connection" -> UrlConnectionHttpClient.builder()
+                    .connectionTimeout(Duration.ofMillis(connectionTimeout))
+                    .socketTimeout(Duration.ofMillis(socketTimeout))
+                    .build();
+            default -> {
+                log.warn("Unknown http-client type '{}', falling back to UrlConnectionHttpClient", httpClientType);
+                yield UrlConnectionHttpClient.builder()
+                        .connectionTimeout(Duration.ofMillis(connectionTimeout))
+                        .socketTimeout(Duration.ofMillis(socketTimeout))
+                        .build();
+            }
+        };
     }
 
     @Bean

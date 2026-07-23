@@ -22,7 +22,7 @@ public class TransactionController {
                 "method", "individual putItem calls (no atomicity)",
                 "requested", count,
                 "written", written,
-                "note", "Partial success possible — some items may be written while others fail");
+                "note", "Partial success possible: some items may be written while others fail");
     }
 
     @PostMapping("/transaction/write/good")
@@ -31,6 +31,6 @@ public class TransactionController {
         return Map.of(
                 "method", "TransactWriteItems (ACID)",
                 "items", written,
-                "note", "All-or-nothing — all items written atomically or none are");
+                "note", "All-or-nothing: all items written atomically or none are");
     }
 }

@@ -194,7 +194,7 @@ class PatternIntegrationTest {
                 "rating", AttributeValue.fromN("4.5"));
         dynamoDbClient.putItem(PutItemRequest.builder().tableName("movies").item(fullItem).build());
 
-        // Bad: full item — description should be present
+        // Bad: full item (description should be present)
         ResponseEntity<Map> bad = rest.getForEntity(url("/api/movies?genre=Action"), Map.class);
         assertThat(bad.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(bad.getBody()).containsKey("movies");
@@ -205,7 +205,7 @@ class PatternIntegrationTest {
         // Full items have non-empty description
         assertThat((String) firstBad.get("description")).isNotEmpty();
 
-        // Good: projected (title, releaseYear only) — description should be empty/default
+        // Good: projected (title, releaseYear only); description should be empty/default
         ResponseEntity<Map> good = rest.getForEntity(url("/api/movies?genre=Action&fields=title,releaseYear"), Map.class);
         assertThat(good.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(good.getBody()).containsKey("movies");
@@ -227,7 +227,7 @@ class PatternIntegrationTest {
         seedMovie("Action", "gsi-" + UUID.randomUUID(), "Alice Chen");
         seedMovie("Comedy", "gsi-" + UUID.randomUUID(), "Alice Chen");
 
-        // Bad: FilterExpression on partition query — requires genre, returns only Alice's Action movies
+        // Bad: FilterExpression on partition query (requires genre, returns only Alice's Action movies)
         ResponseEntity<Map> bad = rest.getForEntity(
                 url("/api/movies/by-author?author=Alice+Chen&genre=Action"), Map.class);
         assertThat(bad.getStatusCode()).isEqualTo(HttpStatus.OK);
@@ -238,7 +238,7 @@ class PatternIntegrationTest {
                 .allMatch(m -> "Alice Chen".equals(m.get("author")))
                 .hasSize(2);
 
-        // Good: GSI query — direct author lookup, returns all Alice's movies across genres
+        // Good: GSI query: direct author lookup, returns all Alice's movies across genres
         ResponseEntity<Map> good = rest.getForEntity(
                 url("/api/movies/by-author?author=Alice+Chen"), Map.class);
         assertThat(good.getStatusCode()).isEqualTo(HttpStatus.OK);
@@ -373,7 +373,7 @@ class PatternIntegrationTest {
         assertThat(good.getBody()).containsEntry("expectedVersion", 1);
         assertThat(good.getBody()).containsEntry("newVersion", 2);
 
-        // Good: update with stale version (should fail — version is now 2)
+        // Good: update with stale version (should fail, version is now 2)
         ResponseEntity<Map> stale = rest.exchange(
                 url("/api/lock/good?genre=Action&movieId=" + movieId + "&title=Stale&expectedVersion=1"),
                 HttpMethod.PUT, null, Map.class);
