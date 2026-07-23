@@ -53,9 +53,9 @@ public class ClientComparisonRunner {
             log.info("Methodology: {} items, {} warmup (discarded), single measurement run", MEASURE, WARMUP);
             log.info("");
 
-            // ---------------------------------------------------------------
-            // Phase 0: Scan the table to retrieve existing movie keys
-            // ---------------------------------------------------------------
+            /*
+             Phase 0: Scan the table to retrieve existing movie keys
+             */
             List<Map<String, AttributeValue>> allItems = scanAllMovies();
 
             log.info("Retrieved {} movie keys from table '{}'", allItems.size(), TABLE_NAME);
@@ -74,9 +74,9 @@ public class ClientComparisonRunner {
                             item.get("movieId").s()))
                     .toList();
 
-            // ---------------------------------------------------------------
-            // Build 3 HTTP clients (raw instantiation - not Spring beans)
-            // ---------------------------------------------------------------
+            /*
+            Build 3 HTTP clients (raw instantiation, not Spring beans)
+             */
             SdkHttpClient urlConnectionClient = UrlConnectionHttpClient.builder()
                     .connectionTimeout(Duration.ofMillis(5000))
                     .socketTimeout(Duration.ofMillis(10000))
@@ -96,35 +96,33 @@ public class ClientComparisonRunner {
             long crtMs;
             double urlRcuTotal;
 
-            try (DynamoDbClient urlDdbClient = buildDynamoDbClient(urlConnectionClient); DynamoDbClient apacheDdbClient = buildDynamoDbClient(apacheClient); DynamoDbClient crtDdbClient = buildDynamoDbClient(crtClient)) {
-                // ---------------------------------------------------------------
-                // Scenario A - URL Connection: sequential baseline
-                //   One TCP connection per request, no pooling
-                // ---------------------------------------------------------------
+            try (DynamoDbClient urlDdbClient = buildDynamoDbClient(urlConnectionClient);
+                 DynamoDbClient apacheDdbClient = buildDynamoDbClient(apacheClient);
+                 DynamoDbClient crtDdbClient = buildDynamoDbClient(crtClient)) {
+
+                /*
+                Scenario A: URL Connection (One TCP connection per request, no pooling)
+                 */
                 log.info("Scenario A: UrlConnectionHttpClient (sequential baseline)");
                 ScenarioResult urlResult = runSequential(urlDdbClient, movieKeys, WARMUP, MEASURE, "url connection");
                 urlMs = urlResult.elapsedMs();
                 urlRcuTotal = urlResult.totalRcu();
 
-                // ---------------------------------------------------------------
-                // Scenario B - Apache: sequential (pooling wins vs URL)
-                //   Connection pooling reduces latency on repeated sequential calls
-                // ---------------------------------------------------------------
+                /*
+                Scenario B: Apache (Connection pooling reduces latency on repeated sequential calls)
+                 */
                 log.info("Scenario B: ApacheHttpClient (sequential pooled)");
                 ScenarioResult apacheResult = runSequential(apacheDdbClient, movieKeys, WARMUP, MEASURE, "apache");
                 apacheMs = apacheResult.elapsedMs();
 
-                // ---------------------------------------------------------------
-                // Scenario C - CRT: concurrent (non-blocking wins vs sequential)
-                //   Non-blocking I/O + virtual threads crush concurrent workloads
-                // ---------------------------------------------------------------
+                /*
+                Scenario C: CRT (Non-blocking I/O + virtual threads crush concurrent workloads)
+                 */
                 log.info("Scenario C: AwsCrtHttpClient (concurrent non blocking)");
                 ScenarioResult crtResult = runConcurrent(crtDdbClient, movieKeys, WARMUP, MEASURE, "crt");
                 crtMs = crtResult.elapsedMs();
 
-                // ---------------------------------------------------------------
-                // Comparison recap
-                // ---------------------------------------------------------------
+                // Recap
                 double apacheFactor = (double) urlMs / apacheMs;
                 double crtFactor = (double) urlMs / crtMs;
 
