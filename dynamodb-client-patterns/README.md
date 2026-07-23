@@ -120,21 +120,63 @@ Note: TTL deletion is eventual. DynamoDB typically removes expired items within 
 
 Values measured against DynamoDB Local with the application's seed data (200 movies, 5 genres).
 
-| #  | Pattern           | Naive approach                         | Cost (measured)                         | Good approach                        | Cost (measured)                          | Impact                                          |
-|----|-------------------|----------------------------------------|-----------------------------------------|--------------------------------------|------------------------------------------|-------------------------------------------------|
-| 1  | **Count**         | `Query` + `.size()`                    | 0.5 RCU, 3 items transferred            | `Select.COUNT`                       | 0.5 RCU, count only, no items            | Eliminates data transfer for count-only queries. Note: requires pagination for partitions >1 MB. |
-| 2  | **Condition**     | `GetItem` + `PutItem`                  | 2 RT, 0.5 RCU + 1 WCU                   | `PutItem` with `ConditionExpression` | 1 RT, 2.0 WCU                            | Half the round-trips, no race condition         |
-| 3  | **Batch write**   | 3x `PutItem`                           | 3 RT                                    | `BatchWriteItem`                     | 1 RT, 10.0 WCU, 5 items                  | Single round-trip, up to 25 items / 16 MB max  |
-| 3  | **Batch read**    | 2x `GetItem`                           | 2 RT                                    | `BatchGetItem`                       | 1 RT                                     | Single round-trip for multiple keys             |
-| 4  | **Projection**    | Full item (8 attributes)               | ~209 B/item                             | `ProjectionExpression` (2 fields)    | ~41 B/item                               | 80% less data transferred (network only, not RCU) |
-| 5  | **GSI vs Filter** | Partition `Query` + `FilterExpression` | scanned 2 items, 0.5 RCU                | GSI `author-index` query             | 3 matching items, 0.5 RCU                | Same RCU, way less data transferred             |
-| 6  | **Pagination**    | Unbounded query                        | 12 items all in memory at once          | `Limit` + `ExclusiveStartKey`        | 5 items/page, `hasMore` flag             | Bounded memory, cursor-based                    |
-| 7  | **Scan vs Query** | Full table `Scan`                      | 3 items all partitions, 0.5 RCU         | Partition `Query`                    | 2 items, single partition, 0.5 RCU       | Targeted read vs full scan                      |
-| 8  | **TTL**           | Write without TTL                      | 3 items, manual cleanup required        | Write with `expireAt`                | 3 items, DynamoDB auto-cleanup (eventual)| No custom cleanup code needed (48h window)     |
-| 9  | **Locking**       | Unconditional update                   | Lost update risk, no conflict detection | Update with version condition        | Atomic update, version conflict detected | Prevents lost concurrent updates                |
-| 10 | **Transactions**  | Individual putItem calls               | 5/5 items written, no atomicity         | `TransactWriteItems`                 | 5 items atomically written               | ACID across multiple items                      |
+| #  | Pattern           | Naive approach                         | Cost (measured)                         | Good approach                        | Cost (measured)                           | Impact                                                                                           |
+|----|-------------------|----------------------------------------|-----------------------------------------|--------------------------------------|-------------------------------------------|--------------------------------------------------------------------------------------------------|
+| 1  | **Count**         | `Query` + `.size()`                    | 0.5 RCU, 3 items transferred            | `Select.COUNT`                       | 0.5 RCU, count only, no items             | Eliminates data transfer for count-only queries. Note: requires pagination for partitions >1 MB. |
+| 2  | **Condition**     | `GetItem` + `PutItem`                  | 2 RT, 0.5 RCU + 1 WCU                   | `PutItem` with `ConditionExpression` | 1 RT, 2.0 WCU                             | Half the round-trips, no race condition                                                          |
+| 3  | **Batch write**   | 3x `PutItem`                           | 3 RT                                    | `BatchWriteItem`                     | 1 RT, 10.0 WCU, 5 items                   | Single round-trip, up to 25 items / 16 MB max                                                    |
+| 3  | **Batch read**    | 2x `GetItem`                           | 2 RT                                    | `BatchGetItem`                       | 1 RT                                      | Single round-trip for multiple keys                                                              |
+| 4  | **Projection**    | Full item (8 attributes)               | ~209 B/item                             | `ProjectionExpression` (2 fields)    | ~41 B/item                                | 80% less data transferred (network only, not RCU)                                                |
+| 5  | **GSI vs Filter** | Partition `Query` + `FilterExpression` | scanned 2 items, 0.5 RCU                | GSI `author-index` query             | 3 matching items, 0.5 RCU                 | Same RCU, way less data transferred                                                              |
+| 6  | **Pagination**    | Unbounded query                        | 12 items all in memory at once          | `Limit` + `ExclusiveStartKey`        | 5 items/page, `hasMore` flag              | Bounded memory, cursor-based                                                                     |
+| 7  | **Scan vs Query** | Full table `Scan`                      | 3 items all partitions, 0.5 RCU         | Partition `Query`                    | 2 items, single partition, 0.5 RCU        | Targeted read vs full scan                                                                       |
+| 8  | **TTL**           | Write without TTL                      | 3 items, manual cleanup required        | Write with `expireAt`                | 3 items, DynamoDB auto-cleanup (eventual) | No custom cleanup code needed (48h window)                                                       |
+| 9  | **Locking**       | Unconditional update                   | Lost update risk, no conflict detection | Update with version condition        | Atomic update, version conflict detected  | Prevents lost concurrent updates                                                                 |
+| 10 | **Transactions**  | Individual putItem calls               | 5/5 items written, no atomicity         | `TransactWriteItems`                 | 5 items atomically written                | ACID across multiple items                                                                       |
 
 > **Note:** DynamoDB Local returns simulated capacity. Real AWS values differ, but the relative ratios between naive and good approaches are representative.
+
+## HTTP Client Comparison
+
+The project includes a client comparison runner that benchmarks three DynamoDB HTTP clients from the AWS SDK, each in its natural use case:
+
+| Client                  | Strength                                | When to use                       |
+|-------------------------|-----------------------------------------|-----------------------------------|
+| UrlConnectionHttpClient | Built in, zero native dependencies      | Dev, tests, occasional queries    |
+| ApacheHttpClient        | Connection pooling, production hardened | Sustained production workloads    |
+| AwsCrtHttpClient        | Non blocking I/O, high concurrency      | Bursty, high throughput workloads |
+
+### Run the comparison
+
+```sh
+docker compose up -d
+./mvnw spring-boot:run -Dspring-boot.run.profiles=client-demo
+```
+
+The runner seeds 200 movies, then runs 1000 GetItem calls (20 warmup, discarded) with each client using the same keys. Output is logged with `[METRIC]`.
+
+### Benchmark results
+
+Measured with 1000 items, 20 warmup, single measurement run, DynamoDB Local:
+
+```
+[METRIC] url connection sequential: 1000 items in 2446ms (2.4ms/item), 500.0 RCU total
+[METRIC] apache sequential: 1000 items in 927ms (0.9ms/item), 500.0 RCU total
+[METRIC] crt concurrent: 1000 items in 180ms (0.2ms/item), 500.0 RCU total
+
+[METRIC] comparison recap:
+[METRIC]   url connection: 2446ms (2.4ms/item), baseline, simple, zero deps
+[METRIC]   apache: 927ms (0.9ms/item), 2.6x faster with connection pooling
+[METRIC]   crt: 180ms (0.2ms/item), 13.6x faster with non blocking I/O
+[METRIC]   same work, same RCU: 500.0, different HTTP transport
+```
+
+Switching the HTTP client at startup is a single config line:
+
+```yaml
+# application.yml (default: url-connection)
+aws.dynamodb.http-client: apache    # or crt
+```
 
 ## Project Structure
 
@@ -161,6 +203,8 @@ src/main/java/com/hogwai/dynamodb/clients/
 │   ├── TtlController.java
 │   ├── LockingController.java
 │   └── TransactionController.java
+├── demo/
+│   └── ClientComparisonRunner.java  # 3-client benchmark (profile: client-demo)
 └── setup/
     ├── TableInitializer.java     # Creates movies table + enables TTL on startup
     └── SeedDataRunner.java       # Seeds 200 movies with datafaker
