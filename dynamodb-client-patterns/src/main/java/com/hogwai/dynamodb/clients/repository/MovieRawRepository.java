@@ -64,6 +64,12 @@ public class MovieRawRepository {
                 .build());
     }
 
+    /**
+     * Count items in a partition using Select.COUNT.
+     * Note: For partitions with >1 MB of data, the count is partial and pagination
+     * (ExclusiveStartKey) is needed to sum results across pages.
+     * Also, Select.COUNT does NOT reduce RCU (it is charged on the total read item size).
+     */
     public QueryResponse queryWithSelectCount(String genre) {
         return client.query(QueryRequest.builder()
                 .tableName(TABLE)
@@ -140,6 +146,12 @@ public class MovieRawRepository {
         return movies.size();
     }
 
+    /**
+     * Batch write up to 25 items in a single request.
+     * Note: DynamoDB limits BatchWriteItem to 25 items / 16 MB total.
+     * The response may contain UnprocessedItems (throttled) that require retry.
+     * BatchWriteItem does NOT support condition expressions and is NOT atomic.
+     */
     public BatchWriteItemResponse batchPut(List<Movie> movies) {
         var writeRequests = movies.stream()
                 .map(m -> WriteRequest.builder()
@@ -153,6 +165,14 @@ public class MovieRawRepository {
                 .build());
     }
 
+    /**
+     * Update item with optimistic locking via version condition.
+     * The OR attribute_not_exists(version) clause allows first-time creation,
+     * but creates a theoretical window where two concurrent first-writers
+     * could both succeed. For strict atomicity from the first write,
+     * create items with version=1 in a separate PutItem with attribute_not_exists,
+     * then use this UpdateItem for subsequent writes only.
+     */
     public UpdateItemResponse updateWithVersion(Movie movie, int expectedVersion) {
         var item = movie.toItemMap();
         item.put("version", AttributeValue.fromN(String.valueOf(expectedVersion + 1)));

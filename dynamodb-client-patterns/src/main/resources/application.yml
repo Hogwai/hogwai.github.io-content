@@ -8,7 +8,8 @@ aws:
     connection-timeout: 5000
     socket-timeout: 10000
     max-connections: 50
-    # Set to 'crt' to use AWS CRT HTTP client (recommended for production)
+    # HTTP client type is resolved in DynamoDbConfig.java
+    # Valid values: url-connection | apache | crt
     http-client: url-connection
 
 logging:

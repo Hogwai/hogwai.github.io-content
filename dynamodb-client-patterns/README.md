@@ -43,6 +43,8 @@ The app seeds 200 movies on first startup and the table is created automatically
 | `GET /api/count?genre=Action&naive=true` | full query + `.size()` | Fetches all items, counts in memory  |
 | `GET /api/count?genre=Action`            | `Select.COUNT`         | Returns only the count from DynamoDB |
 
+Note: Select.COUNT does not reduce RCU consumption. For partitions with more than 1 MB of data, pagination (ExclusiveStartKey) is needed to sum counts across pages.
+
 ### Condition
 
 | Endpoint                                         | Method                | Description                         |
@@ -59,12 +61,16 @@ The app seeds 200 movies on first startup and the table is created automatically
 | `GET /api/batch/read/naive?ids=m1,m2,m3` | N x GetItem      | One request per key          |
 | `GET /api/batch/read/good?ids=m1,m2,m3`  | `BatchGetItem`   | Single request for all keys  |
 
+Note: BatchWriteItem is limited to 25 items / 16 MB total. The response may contain UnprocessedItems (throttled) that require retry. BatchWriteItem is not atomic and does not support condition expressions.
+
 ### Projection
 
 | Endpoint                                                | Method                 | Description                   |
 |---------------------------------------------------------|------------------------|-------------------------------|
 | `GET /api/movies?genre=Action`                          | Full item              | Returns all attributes        |
 | `GET /api/movies?genre=Action&fields=title,releaseYear` | `ProjectionExpression` | Returns only requested fields |
+
+Note: ProjectionExpression reduces network transfer and client-side memory, but does NOT reduce RCU. DynamoDB bills reads on the full item size before projection (up to 4 KB per read capacity unit).
 
 ### GSI vs Filter
 
@@ -94,6 +100,8 @@ The app seeds 200 movies on first startup and the table is created automatically
 | `POST /api/ttl/write/no-ttl?count=5`          | Write without TTL     | Items accumulate forever            |
 | `POST /api/ttl/write?count=5&ttlSeconds=3600` | Write with `expireAt` | Items auto-deleted after TTL expiry |
 
+Note: TTL deletion is eventual. DynamoDB typically removes expired items within 48 hours. DynamoDB Local does not auto-delete expired items (testable via Streams or manual verification of the expireAt attribute).
+
 ### Optimistic Locking
 
 | Endpoint                                                                 | Method                       | Description                             |
@@ -114,15 +122,15 @@ Values measured against DynamoDB Local with the application's seed data (200 mov
 
 | #  | Pattern           | Naive approach                         | Cost (measured)                         | Good approach                        | Cost (measured)                          | Impact                                          |
 |----|-------------------|----------------------------------------|-----------------------------------------|--------------------------------------|------------------------------------------|-------------------------------------------------|
-| 1  | **Count**         | `Query` + `.size()`                    | 0.5 RCU, 3 items transferred            | `Select.COUNT`                       | 0.5 RCU, count only, no items            | Eliminates data transfer for count-only queries |
+| 1  | **Count**         | `Query` + `.size()`                    | 0.5 RCU, 3 items transferred            | `Select.COUNT`                       | 0.5 RCU, count only, no items            | Eliminates data transfer for count-only queries. Note: requires pagination for partitions >1 MB. |
 | 2  | **Condition**     | `GetItem` + `PutItem`                  | 2 RT, 0.5 RCU + 1 WCU                   | `PutItem` with `ConditionExpression` | 1 RT, 2.0 WCU                            | Half the round-trips, no race condition         |
-| 3  | **Batch write**   | 3x `PutItem`                           | 3 RT                                    | `BatchWriteItem`                     | 1 RT, 10.0 WCU, 5 items                  | Single round-trip for up to 25 items            |
+| 3  | **Batch write**   | 3x `PutItem`                           | 3 RT                                    | `BatchWriteItem`                     | 1 RT, 10.0 WCU, 5 items                  | Single round-trip, up to 25 items / 16 MB max  |
 | 3  | **Batch read**    | 2x `GetItem`                           | 2 RT                                    | `BatchGetItem`                       | 1 RT                                     | Single round-trip for multiple keys             |
-| 4  | **Projection**    | Full item (8 attributes)               | ~209 B/item                             | `ProjectionExpression` (2 fields)    | ~41 B/item                               | 80% less data transferred                       |
+| 4  | **Projection**    | Full item (8 attributes)               | ~209 B/item                             | `ProjectionExpression` (2 fields)    | ~41 B/item                               | 80% less data transferred (network only, not RCU) |
 | 5  | **GSI vs Filter** | Partition `Query` + `FilterExpression` | scanned 2 items, 0.5 RCU                | GSI `author-index` query             | 3 matching items, 0.5 RCU                | Same RCU, way less data transferred             |
 | 6  | **Pagination**    | Unbounded query                        | 12 items all in memory at once          | `Limit` + `ExclusiveStartKey`        | 5 items/page, `hasMore` flag             | Bounded memory, cursor-based                    |
 | 7  | **Scan vs Query** | Full table `Scan`                      | 3 items all partitions, 0.5 RCU         | Partition `Query`                    | 2 items, single partition, 0.5 RCU       | Targeted read vs full scan                      |
-| 8  | **TTL**           | Write without TTL                      | 3 items, manual cleanup required        | Write with `expireAt`                | 3 items, DynamoDB auto-cleanup           | No custom cleanup code needed                   |
+| 8  | **TTL**           | Write without TTL                      | 3 items, manual cleanup required        | Write with `expireAt`                | 3 items, DynamoDB auto-cleanup (eventual)| No custom cleanup code needed (48h window)     |
 | 9  | **Locking**       | Unconditional update                   | Lost update risk, no conflict detection | Update with version condition        | Atomic update, version conflict detected | Prevents lost concurrent updates                |
 | 10 | **Transactions**  | Individual putItem calls               | 5/5 items written, no atomicity         | `TransactWriteItems`                 | 5 items atomically written               | ACID across multiple items                      |
 
