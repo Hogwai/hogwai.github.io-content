@@ -3,8 +3,6 @@ package com.hogwai.dynamodb.clients;
 import com.hogwai.dynamodb.clients.model.Movie;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
@@ -28,9 +26,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Testcontainers
 class PatternIntegrationTest {
-
-    private static final Logger log = LoggerFactory.getLogger(PatternIntegrationTest.class);
-
     @Container
     static GenericContainer<?> dynamoDb = new GenericContainer<>("amazon/dynamodb-local:latest")
             .withExposedPorts(8000);
@@ -433,10 +428,10 @@ class PatternIntegrationTest {
                 Thread.sleep(500);
             } catch (InterruptedException _) {
                 Thread.currentThread().interrupt();
-                return;
+                throw new AssertionError("waitForGsiActive interrupted");
             }
         }
-        log.warn("GSI did not become ACTIVE within 30s timeout (DynamoDB Local may be slow)");
+        throw new AssertionError("GSI did not become ACTIVE within 30s timeout (DynamoDB Local may be slow)");
     }
 
     private void clearTable() {

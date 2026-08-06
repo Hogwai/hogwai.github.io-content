@@ -18,6 +18,9 @@ public class MovieService {
     private static final Logger log = LoggerFactory.getLogger(MovieService.class);
     private static final String METRIC_PREFIX = "[METRIC]";
     public static final String BATCH_TEST = "batch-test";
+    public static final String HAS_ACTORS = "hasActors";
+    public static final String METHOD = "method";
+    public static final String ACTORS = "actors";
 
     private final MovieEnhancedRepository enhanced;
     private final MovieRawRepository raw;
@@ -27,7 +30,6 @@ public class MovieService {
         this.raw = raw;
     }
 
-    // ==================== 1. COUNT ====================
 
     public int countBad(String genre) {
         var response = raw.query(genre);
@@ -47,7 +49,6 @@ public class MovieService {
         return count;
     }
 
-    // ==================== 2. CONDITION ====================
 
     public Movie conditionBad(String genre, String movieId) {
         var getResponse = raw.getItem(genre, movieId);
@@ -79,7 +80,6 @@ public class MovieService {
         }
     }
 
-    // ==================== 3. BATCH ====================
 
     public int batchWriteBad(int count) {
         var movies = generateMovies(count);
@@ -124,7 +124,6 @@ public class MovieService {
         return movieIds.size();
     }
 
-    // ==================== 4. PROJECTION ====================
 
     public List<Movie> projectionBad(String genre) {
         var movies = enhanced.queryByGenre(genre);
@@ -137,10 +136,12 @@ public class MovieService {
     }
 
     /**
-     * Good: ProjectionExpression reduces network transfer and client-side memory,
-     * but does NOT reduce RCU. DynamoDB bills reads on the total item size before
-     * projection (up to 4 KB per read capacity unit). The byte estimate below
-     * reflects transferred bytes only.
+     * Query movies with a projection expression.
+     * <p>
+     * Projection reduces the amount of data transferred over the wire and the memory
+     * used for deserialisation. It does <em>not</em> reduce RCU — DynamoDB bills reads
+     * on the full item size before projection (4 KB increments per read capacity unit).
+     * The byte estimate returned in the log reflects transferred bytes only.
      */
     public List<Movie> projectionGood(String genre, List<String> fields) {
         var movies = enhanced.queryByGenreWithProjection(genre, fields);
@@ -161,7 +162,6 @@ public class MovieService {
         return movies;
     }
 
-    // ==================== 5. GSI vs FILTER ====================
 
     public List<Movie> gsiVsFilterBad(String genre, String author) {
         var response = raw.queryWithFilter(genre,
@@ -188,7 +188,6 @@ public class MovieService {
                 .toList();
     }
 
-    // ==================== 6. PAGINATION ====================
 
     public List<Movie> paginationBad(String genre) {
         var movies = enhanced.queryByGenre(genre);
@@ -197,17 +196,21 @@ public class MovieService {
         return movies;
     }
 
+    /**
+     * Query a page of items by page number.
+     * <p>
+     * Page-number pagination on DynamoDB requires iterating through (page-1) cursors,
+     * which makes O(N) round-trips for page N. This is inherent to cursor-based APIs.
+     * In production, prefer cursor-based pagination ({@code lastEvaluatedKey}) over
+     * page numbers for O(1) round-trips.
+     */
     public List<Movie> paginationGood(String genre, int page, int size) {
-        // Note: page-number pagination on DynamoDB requires iterating through (page-1) cursors,
-        // which does O(N) round-trips for page N. This is inherent to cursor-based APIs.
-        // In production, accept lastEvaluatedKey from the caller instead of a page number
-        // for cursor-based pagination (O(1) round-trips).
         Map<String, AttributeValue> lastKey = null;
         for (int i = 1; i < page; i++) {
             var result = enhanced.queryByGenrePage(genre, size, lastKey);
             lastKey = result.lastEvaluatedKey();
             if (lastKey == null || lastKey.isEmpty()) {
-                return List.of();  // no more pages
+                return List.of();
             }
         }
         var result = enhanced.queryByGenrePage(genre, size, lastKey);
@@ -217,7 +220,6 @@ public class MovieService {
         return result.items();
     }
 
-    // ==================== 7. SCAN vs QUERY ====================
 
     public List<Movie> scanBad() {
         var response = raw.scanAll();
@@ -241,7 +243,6 @@ public class MovieService {
                 .toList();
     }
 
-    // ==================== 8. TTL (Time-to-Live) ====================
 
     public int ttlBad(int count) {
         var movies = generateMoviesWithoutTtl(count);
@@ -257,7 +258,6 @@ public class MovieService {
         return count;
     }
 
-    // ==================== 9. OPTIMISTIC LOCKING ====================
 
     public boolean lockingBad(String genre, String movieId, String newTitle) {
         var movie = new Movie();
@@ -291,7 +291,6 @@ public class MovieService {
         }
     }
 
-    // ==================== 10. TRANSACTIONS ====================
 
     public int transactionBad(int count) {
         var movies = generateMoviesForTransaction(count, "tx-bad-");
@@ -310,7 +309,89 @@ public class MovieService {
         return count;
     }
 
-    // ==================== HELPERS ====================
+
+    /**
+     * Check whether a movie has actors by loading the <em>entire</em> entity.
+     * <p>
+     * <b>Anti-pattern:</b> Every attribute of the item is deserialised into a
+     * {@link Movie} object, only to inspect a single field. This wastes memory
+     * and bandwidth. Prefer {@link #hasActorsGood(String, String)} for a
+     * projection-based alternative.
+     */
+    public Map<String, Object> hasActorsBad(String genre, String movieId) {
+        Movie movie = enhanced.getItem(genre, movieId);
+        if (movie == null) {
+            log.info("{} Load entity bad: no item found for {} / {}", METRIC_PREFIX, genre, movieId);
+            return Map.of(HAS_ACTORS, false, METHOD, "full entity (enhanced getItem)", "movie", null);
+        }
+        long itemBytes = Movie.estimateItemBytes(movie.toItemMap());
+        boolean result = movie.getActors() != null && !movie.getActors().isEmpty();
+        log.info("{} Load entity bad (full getItem): {} bytes loaded to check actors flag={}",
+                METRIC_PREFIX, itemBytes, result);
+        return Map.of("movie", movie.getTitle(), HAS_ACTORS, result,
+                "bytesLoaded", itemBytes, METHOD, "full entity (enhanced getItem)");
+    }
+
+    /**
+     * Check whether a movie has actors using a projection expression.
+     * <p>
+     * Only the {@code actors} attribute is fetched and deserialised, reducing
+     * network transfer and client memory compared to loading the full entity.
+     */
+    public Map<String, Object> hasActorsGood(String genre, String movieId) {
+        var response = raw.getItemWithProjection(genre, movieId, List.of(ACTORS));
+        boolean result = response.hasItem()
+                && response.item().get(ACTORS) != null
+                && !response.item().get(ACTORS).ss().isEmpty();
+        double rcu = response.consumedCapacity() != null ? response.consumedCapacity().capacityUnits() : 0;
+        log.info("{} Load entity good (projected getItem): only actors field, {} RCU, flag={}",
+                METRIC_PREFIX, rcu, result);
+        return Map.of(HAS_ACTORS, result, METHOD, "projected (getItem with projectionExpression)");
+    }
+
+    /**
+     * Add an actor using a read-modify-write cycle on the full entity.
+     * <p>
+     * <b>Anti-pattern:</b> The item is loaded entirely, mutated in memory, then
+     * written back unconditionally. This creates a window for lost updates when
+     * two clients modify the same item concurrently, and wastes capacity by
+     * rewriting every attribute even though only one changed.
+     */
+    public Map<String, Object> addActorBad(String genre, String movieId, String actorName) {
+        Movie movie = enhanced.getItem(genre, movieId);
+        long readBytes = Movie.estimateItemBytes(movie.toItemMap());
+
+        Set<String> currentActors = new HashSet<>(movie.getActors());
+        currentActors.add(actorName);
+        movie.setActors(currentActors);
+        movie.setVersion(movie.getVersion() != null ? movie.getVersion() + 1 : 1);
+
+        ConsumedCapacity capacity = raw.putItem(movie);
+        long writeBytes = Movie.estimateItemBytes(movie.toItemMap());
+        double wcu = capacity != null ? capacity.capacityUnits() : 0;
+
+        log.info("{} Add actor bad (RMW cycle): read {} bytes, wrote {} bytes, {} WCU — lost update risk",
+                METRIC_PREFIX, readBytes, writeBytes, wcu);
+        return Map.of(METHOD, "read-modify-write (enhanced getItem + putItem)",
+                "readBytes", readBytes, "writeBytes", writeBytes, "wcu", wcu);
+    }
+
+    /**
+     * Add an actor with an atomic update expression.
+     * <p>
+     * The {@code ADD actors :newActor} update expression performs a single
+     * round-trip with no read-before-write, eliminating the lost-update risk
+     * and reducing write amplification.
+     */
+    public Map<String, Object> addActorGood(String genre, String movieId, String actorName) {
+        var response = raw.addActor(genre, movieId, actorName);
+        double wcu = response.consumedCapacity() != null ? response.consumedCapacity().capacityUnits() : 0;
+        log.info("{} Add actor good (updateExpression): 1 RT, {} WCU, atomic, no lost update risk",
+                METRIC_PREFIX, wcu);
+        return Map.of(METHOD, "atomic update (UpdateItem with ADD actors)",
+                "wcu", wcu, "atomic", true);
+    }
+
 
     private Movie createDummyMovie(String genre, String movieId) {
         var movie = new Movie();

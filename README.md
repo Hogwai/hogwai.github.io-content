@@ -11,6 +11,7 @@ Repository containing showcases and examples for the blog [Heap of Hogwai](https
 - [database-driven-workflow-engine](/database-driven-workflow-engine): [Building a database-driven workflow engine on Spring Batch](https://hogwai.github.io/posts/database-driven-workflow-engine/)
 - [jpa-projections](/jpa-projections): [The Spring Data JPA projections handbook](https://hogwai.dev/posts/jpa-projections/)
 - [kafka-synchronous-messaging](/kafka-synchronous-messaging): [Synchronous request/reply over Kafka with Spring Boot](https://hogwai.github.io/posts/synchronous-request-reply-over-kafka-with-spring-boot/)
+- [g1-gc-observability](/g1-gc-observability): JDK 25 workload demonstrating G1 GC observability (unified GC logs, JFR, cgroup constraints)
 
 
 

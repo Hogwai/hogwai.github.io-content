@@ -1,0 +1,15 @@
+services:
+  g1-workload:
+    image: eclipse-temurin:25-jdk
+    working_dir: /work
+    mem_limit: 512m
+    cpus: 1
+    volumes:
+      - ./target:/work/target
+      - ./target/g1-gc-observability-1.0.0.jar:/work/app.jar:ro
+    command: >
+      java -Xms256m -Xmx256m -XX:+UseG1GC
+      -Xlog:gc*:file=target/gc.log:time,level,tags:filecount=5,filesize=10m
+      -Xlog:os+container=trace
+      -XX:StartFlightRecording=disk=true,dumponexit=true,filename=target/g1.jfr,settings=profile
+      -jar app.jar 90
