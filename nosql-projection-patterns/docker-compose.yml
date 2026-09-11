@@ -1,0 +1,9 @@
+services:
+  mongodb:
+    image: mongo:7.0
+    ports:
+      - "27017:27017"
+  cassandra:
+    image: cassandra:5.0
+    ports:
+      - "9042:9042"
