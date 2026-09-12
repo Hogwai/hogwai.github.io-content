@@ -1,0 +1,47 @@
+INSERT INTO movies (id, title, release_year, genre) VALUES
+(1, 'The Matrix', 1999, 'Sci-Fi'),
+(2, 'Inception', 2010, 'Sci-Fi'),
+(3, 'The Godfather', 1972, 'Crime'),
+(4, 'Pulp Fiction', 1994, 'Crime'),
+(5, 'Forrest Gump', 1994, 'Drama'),
+(6, 'The Dark Knight', 2008, 'Action'),
+(7, 'Schindlers List', 1993, 'Drama'),
+(8, 'The Lord of the Rings', 2001, 'Fantasy'),
+(9, 'Fight Club', 1999, 'Drama'),
+(10, 'Gladiator', 2000, 'Action');
+
+INSERT INTO actors (id, first_name, last_name) VALUES
+(1, 'Keanu', 'Reeves'),
+(2, 'Laurence', 'Fishburne'),
+(3, 'Carrie-Anne', 'Moss'),
+(4, 'Leonardo', 'DiCaprio'),
+(5, 'Joseph', 'Gordon-Levitt'),
+(6, 'Marlon', 'Brando'),
+(7, 'Al', 'Pacino'),
+(8, 'John', 'Travolta'),
+(9, 'Samuel', 'Jackson'),
+(10, 'Tom', 'Hanks'),
+(11, 'Christian', 'Bale'),
+(12, 'Heath', 'Ledger'),
+(13, 'Liam', 'Neeson'),
+(14, 'Ralph', 'Fiennes'),
+(15, 'Elijah', 'Wood'),
+(16, 'Viggo', 'Mortensen'),
+(17, 'Brad', 'Pitt'),
+(18, 'Edward', 'Norton'),
+(19, 'Russell', 'Crowe'),
+(20, 'Joaquin', 'Phoenix'),
+(21, 'Matt', 'Damon'),
+(22, 'Ben', 'Affleck');
+
+INSERT INTO movies_actors (movie_id, actor_id) VALUES
+(1, 1), (1, 2), (1, 3),
+(2, 4), (2, 5),
+(3, 6), (3, 7),
+(4, 8), (4, 9),
+(5, 10),
+(6, 11), (6, 12),
+(7, 13), (7, 14),
+(8, 15), (8, 16),
+(9, 17), (9, 18),
+(10, 19), (10, 20);

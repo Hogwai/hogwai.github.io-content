@@ -1,0 +1,8 @@
+spring:
+  application:
+    name: jdbi-projections-test
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema.sql
+      data-locations: classpath:data.sql
