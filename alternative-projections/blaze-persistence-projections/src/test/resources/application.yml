@@ -1,0 +1,12 @@
+spring:
+  application:
+    name: blaze-persistence-projections-test
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    defer-datasource-initialization: true
+    show-sql: false
+  sql:
+    init:
+      mode: always
+      data-locations: classpath:data.sql
