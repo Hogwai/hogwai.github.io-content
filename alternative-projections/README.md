@@ -4,14 +4,18 @@ A showcase of JPA projections alternatives in Spring Boot.
 
 ## Projects
 
+Each library exists in two variants where relevant: the plain variant declares tables and columns by hand (no build-time step) and the `-codegen-` variant generates the schema model at build time (jOOQ DDLDatabase from `schema.sql`, QueryDSL export from H2 in PostgreSQL mode).
+
 | Project | Library | Key Concept |
 |---|---|---|
 | `jdbctemplate-projections` | JdbcTemplate | JDBC with RowMapper |
 | `spring-data-jdbc-projections` | Spring Data JDBC | Spring Data without JPA |
 | `jdbi-projections` | JDBI | Lightweight SQL with SQL Object API |
-| `querydsl-projections` | QueryDSL SQL | Type-safe SQL DSL |
+| `querydsl-projections` | QueryDSL SQL | Type-safe SQL DSL, hand-written Q-classes |
+| `querydsl-codegen-projections` | QueryDSL SQL | Type-safe SQL DSL, Q-classes generated at build time |
 | `blaze-persistence-projections` | Blaze-Persistence | Entity Views on top of JPA |
-| `jooq-projections` | jOOQ | Type-safe SQL with code generation |
+| `jooq-projections` | jOOQ | Type-safe SQL DSL, hand-written table model |
+| `jooq-codegen-projections` | jOOQ | Type-safe SQL with build-time code generation |
 
 ## Prerequisites
 

@@ -1,0 +1,18 @@
+spring:
+  application:
+    name: querydsl-codegen-projections
+  datasource:
+    url: jdbc:postgresql://localhost:5432/projections
+    username: postgres
+    password: postgres
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema.sql
+      data-locations: classpath:data.sql
+  threads:
+    virtual:
+      enabled: true
+
+server:
+  port: 8080
