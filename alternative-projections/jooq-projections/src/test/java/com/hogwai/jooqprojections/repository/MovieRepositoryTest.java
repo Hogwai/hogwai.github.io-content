@@ -3,6 +3,8 @@ package com.hogwai.jooqprojections.repository;
 import com.hogwai.jooqprojections.dto.GenreStatDto;
 import com.hogwai.jooqprojections.dto.MovieTitleDto;
 import com.hogwai.jooqprojections.dto.MovieWithActorsDto;
+import org.jooq.Record;
+import org.jooq.Result;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -64,5 +66,16 @@ class MovieRepositoryTest {
         MovieWithActorsDto movie = repository.findWithActorsById(1L);
         assertThat(movie).isNotNull();
         assertThat(movie.actors()).hasSize(3);
+    }
+
+    @Test
+    void shouldFindTuplesByGenre() {
+        Result<? extends Record> tuples = repository.findTuplesByGenre("Sci-Fi");
+        assertThat(tuples).hasSize(2);
+        Record first = tuples.getFirst();
+        assertThat(first.get("id", Long.class)).isEqualTo(1L);
+        assertThat(first.get("title", String.class)).isEqualTo("The Matrix");
+        assertThat(first.get("releaseYear", Integer.class)).isEqualTo(1999);
+        assertThat(first.get("genre", String.class)).isEqualTo("Sci-Fi");
     }
 }

@@ -6,6 +6,8 @@ import com.hogwai.jooqprojections.dto.MovieWithActorsDto;
 import org.jooq.Condition;
 import org.jooq.DSLContext;
 import org.jooq.Field;
+import org.jooq.Record;
+import org.jooq.Result;
 import org.jooq.Table;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
@@ -42,6 +44,10 @@ public class MovieRepository {
     private static final Field<String> ACTOR_LAST_NAME = field("actors.last_name", String.class);
     private static final Field<Long> MOVIE_ACTOR_ACTOR_ID = field("movies_actors.actor_id", Long.class);
     private static final Field<Long> MOVIE_ACTOR_MOVIE_ID = field("movies_actors.movie_id", Long.class);
+    public static final String TITLE = "title";
+    public static final String RELEASE_YEAR = "releaseYear";
+    public static final String GENRE = "genre";
+    public static final String ID = "id";
 
     private final DSLContext dsl;
 
@@ -51,10 +57,10 @@ public class MovieRepository {
 
     public MovieTitleDto findTitleById(Long id) {
         return dsl.select(
-                        MOVIE_ID.as("id"),
-                        MOVIE_TITLE.as("title"),
-                        MOVIE_RELEASE_YEAR.as("releaseYear"),
-                        MOVIE_GENRE.as("genre"))
+                        MOVIE_ID.as(ID),
+                        MOVIE_TITLE.as(TITLE),
+                        MOVIE_RELEASE_YEAR.as(RELEASE_YEAR),
+                        MOVIE_GENRE.as(GENRE))
                 .from(MOVIES)
                 .where(MOVIE_ID.eq(id))
                 .fetchOneInto(MovieTitleDto.class);
@@ -70,10 +76,10 @@ public class MovieRepository {
         }
 
         return dsl.select(
-                        MOVIE_ID.as("id"),
-                        MOVIE_TITLE.as("title"),
-                        MOVIE_RELEASE_YEAR.as("releaseYear"),
-                        MOVIE_GENRE.as("genre"))
+                        MOVIE_ID.as(ID),
+                        MOVIE_TITLE.as(TITLE),
+                        MOVIE_RELEASE_YEAR.as(RELEASE_YEAR),
+                        MOVIE_GENRE.as(GENRE))
                 .from(MOVIES)
                 .where(filters)
                 .orderBy(MOVIE_ID.asc())
@@ -82,7 +88,7 @@ public class MovieRepository {
 
     public List<GenreStatDto> findGenreStats() {
         return dsl.select(
-                        MOVIE_GENRE.as("genre"),
+                        MOVIE_GENRE.as(GENRE),
                         count(MOVIE_ID).cast(Long.class).as("movieCount"))
                 .from(MOVIES)
                 .groupBy(MOVIE_GENRE)
@@ -97,7 +103,7 @@ public class MovieRepository {
         }
 
         List<MovieWithActorsDto.ActorDto> actors = dsl.select(
-                        ACTOR_ID.as("id"),
+                        ACTOR_ID.as(ID),
                         ACTOR_FIRST_NAME.as("firstName"),
                         ACTOR_LAST_NAME.as("lastName"))
                 .from(ACTORS)
@@ -112,5 +118,21 @@ public class MovieRepository {
                 movie.releaseYear(),
                 movie.genre(),
                 actors);
+    }
+
+    /**
+     * Tuple projection: returns raw {@link Record} objects without mapping
+     * to a DTO. Each record provides typed access by name or position.
+     */
+    public Result<? extends Record> findTuplesByGenre(String genre) {
+        return dsl.select(
+                        MOVIE_ID.as(ID),
+                        MOVIE_TITLE.as(TITLE),
+                        MOVIE_RELEASE_YEAR.as(RELEASE_YEAR),
+                        MOVIE_GENRE.as(GENRE))
+                .from(MOVIES)
+                .where(MOVIE_GENRE.eq(genre))
+                .orderBy(MOVIE_ID.asc())
+                .fetch();
     }
 }
