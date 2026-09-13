@@ -1,2 +1,9 @@
-/mvnw text eol=lf
+* text=auto
+*.java text diff=java
+*.xml text
+*.yml text
+*.sql text
+*.md text
+*.sh text eol=lf
+mvnw text eol=lf
 *.cmd text eol=crlf
