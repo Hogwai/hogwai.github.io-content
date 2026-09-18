@@ -32,11 +32,11 @@ flowchart TD
 
 ## Pre-Seeded Pipelines
 
-| Config | Steps | Notes |
-|---|---|---|
-| **standard-order** | 8 | validateOrder → checkInventory → processPayment → calculateTax → fulfillOrder → sendConfirmation → updateAccounting → archiveOrder |
-| **premium-order** | 9 | Adds applyDiscount after processPayment |
-| **flagged-order** | 4 | Short path: validateOrder → checkInventory → escalateOrder → archiveOrder |
+| Config             | Steps | Notes                                                                                                                                     |
+|--------------------|-------|-------------------------------------------------------------------------------------------------------------------------------------------|
+| **standard-order** | 8     | validateOrder -> checkInventory -> processPayment -> calculateTax -> fulfillOrder -> sendConfirmation -> updateAccounting -> archiveOrder |
+| **premium-order**  | 9     | Adds applyDiscount after processPayment                                                                                                   |
+| **flagged-order**  | 4     | Short path: validateOrder -> checkInventory -> escalateOrder -> archiveOrder                                                              |
 
 ## Tech Stack
 
@@ -124,6 +124,7 @@ curl -X POST "http://localhost:8080/chain-config/create" \
     "chainConfName": "express-order",
     "chainConfDescription": "Express order with 2-day shipping",
     "chainStepRecords": [
+      {"stepName": "chainInformationStep", "nextStepOnSuccess": "validateOrder", "nextStepOnFailure": null},
       {"stepName": "validateOrder", "nextStepOnSuccess": "checkInventory", "nextStepOnFailure": "escalateOrder"},
       {"stepName": "checkInventory", "nextStepOnSuccess": "processPayment", "nextStepOnFailure": "escalateOrder"},
       {"stepName": "processPayment", "nextStepOnSuccess": "fulfillOrder", "nextStepOnFailure": "escalateOrder"},
@@ -144,11 +145,13 @@ Swagger UI is available at `http://localhost:8080/`.
 
 ## How It Works
 
-1. A `ChainStepDecider` (implementing `JobExecutionDecider`) queries the database after each step execution to determine the next step.
-2. The routing is driven by `nextStepOnSuccess` and `nextStepOnFailure` columns in `ts_chain_step`.
-3. When the decider returns a step name matching one of the 10 pre-registered Spring Batch steps, the job routes to that step.
-4. When no next step is configured (`NULL`), the job ends with `COMPLETED`.
-5. Each `OrderProcessingTasklet` execution simulates real work (~300ms processing + logging).
+- A `ChainStepDecider` (implementing `JobExecutionDecider`) queries the database after each step execution to determine the next step.
+- The routing is driven by `nextStepOnSuccess` and `nextStepOnFailure` columns in `ts_chain_step`.
+- The decider treats every step uniformly, including the bootstrap `chainInformationStep`, which is resolved through the same `findByStepAndConfiguration` lookup as any other step.
+- Each configuration must therefore contain a `chainInformationStep` row whose `nextStepOnSuccess` points to the first real step of that configuration.
+- When the decider returns a step name matching one of the 10 pre-registered Spring Batch steps, the job routes to that step.
+- When no next step is configured (`NULL`), the job ends with `COMPLETED`.
+- Each `OrderProcessingTasklet` execution simulates real work (~300ms processing + logging).
 
 ## Key Files
 
@@ -182,7 +185,7 @@ src/main/java/com/hogwai/
 ```
 
 The `ChainStepDeciderTest` covers 4 scenarios:
-- Successful step → next step on success
-- Failed step → next step on failure
-- Unknown step name → FAILED
-- Null step execution → routes to first configured step
+- Successful step -> next step on success
+- Failed step -> next step on failure
+- Unknown step name -> FAILED
+- Null step execution -> returns UNKNOWN

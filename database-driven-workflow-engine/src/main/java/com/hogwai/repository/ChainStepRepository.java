@@ -24,7 +24,4 @@ public interface ChainStepRepository extends JpaRepository<ChainStep, Integer> {
                                                    @Param("confName") String confName);
 
     void deleteAllByChainConfiguration(ChainConfiguration chainConfiguration);
-
-    @Query("SELECT cs FROM ChainStep cs JOIN FETCH cs.currentStep WHERE cs.chainConfiguration.confName = :configName ORDER BY cs.id")
-    java.util.List<ChainStep> findFirstStepByConfigName(@Param("configName") String configName, org.springframework.data.domain.Pageable pageable);
 }

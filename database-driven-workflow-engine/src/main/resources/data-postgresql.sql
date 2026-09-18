@@ -51,6 +51,9 @@ WHERE NOT EXISTS (SELECT 1 FROM ts_step WHERE stp_id = 9);
 INSERT INTO ts_step (stp_id, stp_name, stp_description)
 SELECT 10, 'archiveOrder',     'Archive completed order records'
 WHERE NOT EXISTS (SELECT 1 FROM ts_step WHERE stp_id = 10);
+INSERT INTO ts_step (stp_id, stp_name, stp_description)
+SELECT 11, 'chainInformationStep', 'Bootstrap step that logs the chain configuration before routing'
+WHERE NOT EXISTS (SELECT 1 FROM ts_step WHERE stp_id = 11);
 
 -- ============================================================
 -- Seed: Configuration 1 -> Standard Order
@@ -58,6 +61,9 @@ WHERE NOT EXISTS (SELECT 1 FROM ts_step WHERE stp_id = 10);
 INSERT INTO ts_chain_config (chn_cfg_id, chn_cfg_name, chn_cfg_description, chn_sts_id, chn_id)
 SELECT 1, 'standard-order', 'Standard order processing pipeline', 1, 1
 WHERE NOT EXISTS (SELECT 1 FROM ts_chain_config WHERE chn_cfg_id = 1);
+
+INSERT INTO ts_chain_step (chn_stp_id, chn_stp_next_step_on_success, chn_stp_next_step_on_failure, chn_sts_id, chn_cfg_id, stp_id)
+SELECT 22, 'validateOrder', NULL, 1, 1, 11 WHERE NOT EXISTS (SELECT 1 FROM ts_chain_step WHERE chn_stp_id = 22);
 
 INSERT INTO ts_chain_step (chn_stp_id, chn_stp_next_step_on_success, chn_stp_next_step_on_failure, chn_sts_id, chn_cfg_id, stp_id)
 SELECT 1,  'checkInventory',   'escalateOrder',  1, 1, 1 WHERE NOT EXISTS (SELECT 1 FROM ts_chain_step WHERE chn_stp_id = 1);
@@ -84,6 +90,9 @@ SELECT 2, 'premium-order', 'Premium order processing with discount application',
 WHERE NOT EXISTS (SELECT 1 FROM ts_chain_config WHERE chn_cfg_id = 2);
 
 INSERT INTO ts_chain_step (chn_stp_id, chn_stp_next_step_on_success, chn_stp_next_step_on_failure, chn_sts_id, chn_cfg_id, stp_id)
+SELECT 23, 'validateOrder', NULL, 1, 2, 11 WHERE NOT EXISTS (SELECT 1 FROM ts_chain_step WHERE chn_stp_id = 23);
+
+INSERT INTO ts_chain_step (chn_stp_id, chn_stp_next_step_on_success, chn_stp_next_step_on_failure, chn_sts_id, chn_cfg_id, stp_id)
 SELECT 9,  'checkInventory',   'escalateOrder',  1, 2, 1  WHERE NOT EXISTS (SELECT 1 FROM ts_chain_step WHERE chn_stp_id = 9);
 INSERT INTO ts_chain_step (chn_stp_id, chn_stp_next_step_on_success, chn_stp_next_step_on_failure, chn_sts_id, chn_cfg_id, stp_id)
 SELECT 10, 'processPayment',   'escalateOrder',  1, 2, 2  WHERE NOT EXISTS (SELECT 1 FROM ts_chain_step WHERE chn_stp_id = 10);
@@ -108,6 +117,9 @@ SELECT 17, NULL,               NULL,             1, 2, 10 WHERE NOT EXISTS (SELE
 INSERT INTO ts_chain_config (chn_cfg_id, chn_cfg_name, chn_cfg_description, chn_sts_id, chn_id)
 SELECT 3, 'flagged-order', 'Order flagged for manual review', 1, 1
 WHERE NOT EXISTS (SELECT 1 FROM ts_chain_config WHERE chn_cfg_id = 3);
+
+INSERT INTO ts_chain_step (chn_stp_id, chn_stp_next_step_on_success, chn_stp_next_step_on_failure, chn_sts_id, chn_cfg_id, stp_id)
+SELECT 24, 'validateOrder', NULL, 1, 3, 11 WHERE NOT EXISTS (SELECT 1 FROM ts_chain_step WHERE chn_stp_id = 24);
 
 INSERT INTO ts_chain_step (chn_stp_id, chn_stp_next_step_on_success, chn_stp_next_step_on_failure, chn_sts_id, chn_cfg_id, stp_id)
 SELECT 18, 'checkInventory',   'escalateOrder',  1, 3, 1  WHERE NOT EXISTS (SELECT 1 FROM ts_chain_step WHERE chn_stp_id = 18);

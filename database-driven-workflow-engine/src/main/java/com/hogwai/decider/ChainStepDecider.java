@@ -23,39 +23,28 @@ public class ChainStepDecider implements JobExecutionDecider {
 
     @Override
     public FlowExecutionStatus decide(JobExecution jobExecution, StepExecution stepExecution) {
-        String config = jobExecution.getJobParameters().getString("chainConfigName");
+        FlowExecutionStatus executionStatus = FlowExecutionStatus.UNKNOWN;
+        if (stepExecution != null) {
+            String stepName = stepExecution.getStepName();
+            String config = jobExecution.getJobParameters().getString("chainConfigName");
+            ChainStep currentStep =
+                chainStepRepository.findByStepAndConfiguration(stepName, config).orElse(null);
 
-        // Special case: chainInformationStep or null stepExecution
-        if (stepExecution == null || "chainInformationStep".equals(stepExecution.getStepName())) {
-            var steps = chainStepRepository.findFirstStepByConfigName(config,
-                org.springframework.data.domain.PageRequest.of(0, 1));
-            String firstStepName = steps.isEmpty() ? null : steps.getFirst().getCurrentStep().getStepName();
-            if (firstStepName != null) {
-                LOGGER.info("Starting chain '{}' with first step: {}", config, firstStepName);
-                return new FlowExecutionStatus(firstStepName);
+            if (currentStep == null) {
+                LOGGER.error("Step {} with configuration {} not found", stepName, config);
+                return FlowExecutionStatus.FAILED;
             }
-            LOGGER.error("No steps found for configuration {}", config);
-            return FlowExecutionStatus.FAILED;
-        }
 
-        // Normal flow: look up current step in DB
-        String stepName = stepExecution.getStepName();
-        ChainStep currentStep =
-            chainStepRepository.findByStepAndConfiguration(stepName, config).orElse(null);
-
-        if (currentStep == null) {
-            LOGGER.error("Step {} with configuration {} not found", stepName, config);
-            return FlowExecutionStatus.FAILED;
+            if (stepExecution.getStatus() == BatchStatus.COMPLETED) {
+                executionStatus = new FlowExecutionStatus(currentStep.getNextStepOnSuccess());
+                LOGGER.info("Step {} completed. Next step: {}",
+                    stepName, currentStep.getNextStepOnSuccess());
+            } else {
+                executionStatus = new FlowExecutionStatus(currentStep.getNextStepOnFailure());
+                LOGGER.warn("Step {} ended in failure. Next step: {}",
+                    stepName, currentStep.getNextStepOnFailure());
+            }
         }
-
-        if (stepExecution.getStatus() == BatchStatus.COMPLETED) {
-            LOGGER.info("Step {} completed. Next step: {}",
-                stepName, currentStep.getNextStepOnSuccess());
-            return new FlowExecutionStatus(currentStep.getNextStepOnSuccess());
-        } else {
-            LOGGER.warn("Step {} ended in failure. Next step: {}",
-                stepName, currentStep.getNextStepOnFailure());
-            return new FlowExecutionStatus(currentStep.getNextStepOnFailure());
-        }
+        return executionStatus;
     }
 }

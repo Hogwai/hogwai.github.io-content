@@ -17,7 +17,6 @@ import org.springframework.batch.core.JobParametersBuilder;
 import org.springframework.batch.core.StepExecution;
 import org.springframework.batch.core.job.flow.FlowExecutionStatus;
 
-import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -107,16 +106,12 @@ class ChainStepDeciderTest {
     }
 
     @Test
-    @DisplayName("Should return first step name when stepExecution is null")
+    @DisplayName("Should return UNKNOWN when stepExecution is null")
     void testNullStepExecution() {
         JobExecution jobExecution = createJobExecution();
-        ChainStep firstStep = createChainStep(NEXT_ON_SUCCESS, NEXT_ON_FAILURE);
-        when(chainStepRepository.findFirstStepByConfigName(eq(CONFIG_NAME),
-            any(org.springframework.data.domain.Pageable.class)))
-            .thenReturn(List.of(firstStep));
 
         FlowExecutionStatus result = decider.decide(jobExecution, null);
 
-        assertEquals("validateOrder", result.getName());
+        assertEquals(FlowExecutionStatus.UNKNOWN.getName(), result.getName());
     }
 }
