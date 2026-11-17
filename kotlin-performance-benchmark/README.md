@@ -6,59 +6,16 @@ Kotlin/JVM counterpart to the Java performance projects in this repository:
 * [collections-issues-benchmark](/collections-issues-benchmark): `List.contains` is O(n), `List.containsAll` is O(n*m).
 * [regex-performance-benchmark](/regex-performance-benchmark): recompiling a pattern, capturing groups, backtracking.
 
-This project measures which of those pitfalls exist in Kotlin, and which ones the language removes or replaces with different ones.
+The question is which of those pitfalls exist in Kotlin, which ones the language removes, and which new ones it adds.
 
-## Short answer
+## What is measured
 
-| Topic | Java result | Kotlin result |
+| Benchmark | Compares | Parameters |
 |---|---|---|
-| `anyMatch`/`allMatch`/`noneMatch` on a collection | 144 B/op, 3 to 4x slower than a loop | `any {}`/`all {}`/`none {}` are `inline`, below the profiler floor, loop speed |
-| `filter().count()` | 176 to 208 B/op | `count {}` allocates nothing, `filter {}.size` allocates 14 936 B/op |
-| `List.contains` / `containsAll` | O(n) / O(n*m) | identical, it is the same JDK code |
-| Regex compiled in a loop | expensive | identical, and `Regex(...)` has no compile cache |
-| `Stream` laziness | explicit `stream()` | `Sequence` is opt-in, and it is not free |
-
-The short version: Kotlin's idiomatic collection API is not a port of the Stream API, so the flagship Java problem does not reproduce. What does reproduce is everything that comes from the JDK collections themselves (`contains`, regex), plus Kotlin-specific costs around `Sequence`, boxing and lazy `findAll`.
-
-## Implementations compared
-
-### AllocationBenchmark
-
-Five scenarios on a 1000 element dataset (`empty`, `first`, `mid`, `last`, `absent`), with the target value `-1`:
-
-* `anyInlineList`, `anyInlineIntArray`, `anyInlineArray`: the idiomatic Kotlin extension, an inlined loop.
-* `anyIndexedList`, `anyIndexedIntArray`: a handwritten `for` loop over indices, the allocation free baseline.
-* `anySequenceList`, `anySequenceIntArray`: `asSequence()`, the Java `Stream` habit transposed.
-* `anyStreamList`: `list.stream()`, the actual Java Stream API called from Kotlin.
-* `firstOrNullList` vs `filterThenFirstList` vs `sequenceFilterFirst` vs `streamFilterFirst`: the `filter().findFirst()` family.
-
-### CountBenchmark
-
-The `filter().count()` family on fixed datasets, separate from `AllocationBenchmark` because it does not depend on the `anyMatch` scenario:
-
-* `countInline` (`list.count {}`), against `countFilterSize` (`list.filter {}.size`).
-* `countSequence`, `countStream`.
-* `countNoMatchInline`, `countNoMatchStream` on a list where nothing matches.
-
-### ContainsBenchmark
-
-`List` and `Set` membership at sizes 10, 1000 and 100 000:
-
-* `contains` with a present and an absent probe, plus the `in` operator.
-* `containsAll` with a present and an absent argument.
-* `list.toSet().containsAll(...)`, where the conversion is part of the measurement.
-* `list.intersect(other).isEmpty()`, the idiomatic Kotlin one-liner.
-
-### RegexBenchmark
-
-On a realistic log line and a 500 line log:
-
-* `Regex(...)` and `toRegex()` inside the benchmark, against a precompiled `Regex` and a precompiled `java.util.regex.Pattern`.
-* `findAll()` never consumed, versus `count()` and `toList()`.
-* `java.util.regex.Matcher` loop as a baseline.
-* `split(",")` with a `String` delimiter versus `split(Regex(","))`.
-* Capturing group extraction versus a non-capturing pattern.
-* `String.matches(Regex)`, which is a whole string match, not a search.
+| `AllocationBenchmark` | `any {}` inline, indexed loops, `asSequence()`, `stream()`, on `List<Int>`, `Array<Int>` and `IntArray` | `empty`, `first`, `mid`, `last`, `absent` on 1000 elements |
+| `CountBenchmark` | `count {}`, `filter {}.size`, sequence and stream `filter().count()` | all match, plus two all-miss methods |
+| `ContainsBenchmark` | `List` vs `Set`, `contains` and `containsAll`, `toSet()` conversion, `intersect` | 10, 1 000, 100 000 elements |
+| `RegexBenchmark` | `Regex(...)` vs precompiled, lazy `findAll`, `Matcher` loop, `split` with `String` vs `Regex`, capturing groups | a log line and a 500 line log |
 
 ## Prerequisites
 
@@ -66,7 +23,7 @@ On a realistic log line and a 500 line log:
 * **Apache Maven** 3.6 or later.
 * An IDE like IntelliJ IDEA or Eclipse (optional).
 
-## Project structure
+## Project Structure
 
 ```shell
 kotlin-performance-benchmark/
@@ -113,17 +70,11 @@ java -jar target/kotlin-performance-benchmark.jar AllocationBenchmark -prof gc
 
 ## Results
 
-Measured with:
+Measured with Eclipse Temurin JDK 25.0.3 on Linux (WSL2), 3 forks, 5 warmup and 10 measurement iterations of 300 ms, `-prof gc`, and `-XX:+UseCompactObjectHeaders` without a heap override. Allocation is `gc.alloc.rate.norm` in B/op, the average bytes allocated by one call. `~0` marks scores at the profiler detection floor.
 
-* Eclipse Temurin JDK 25.0.3 on Linux (WSL2)
-* 3 forks, 5 warmup iterations and 10 measurement iterations of 300 ms, GC profiler enabled
-* `-XX:+UseCompactObjectHeaders`, no heap override
-* Allocation is `gc.alloc.rate.norm` in B/op, the average bytes allocated by one call
-* `~0` marks scores at the profiler detection floor
+### AnyMatch
 
-### AllocationBenchmark
-
-#### anyMatch family, time (ns/op, lower is better)
+Time in ns/op, lower is better.
 
 | Method | empty | first | mid | last | absent |
 |---|---:|---:|---:|---:|---:|
@@ -136,7 +87,7 @@ Measured with:
 | indexed `for` on `IntArray` | 0.27 | 0.37 | 39.17 | **77.76** | **77.67** |
 | `IntArray.asSequence().any {}` | 0.26 | 0.36 | 57.86 | 93.36 | 113.17 |
 
-#### anyMatch family, allocation (B/op, lower is better)
+Allocation in B/op, lower is better.
 
 | Method | empty | first | mid | last | absent |
 |---|---:|---:|---:|---:|---:|
@@ -149,9 +100,11 @@ Measured with:
 | indexed `for` on `IntArray` | ~0 | ~0 | ~0 | ~0 | ~0 |
 | `IntArray.asSequence().any {}` | ~0 | ~0 | ~0 | ~0 | ~0 |
 
-The Java Stream is the only variant that allocates on every call, early exit included. The inline extensions allocate nothing measurable: the `ArrayList` iterator is scalar replaced by escape analysis, so `list.any {}` matches the indexed loop on a full scan (280 ns against 282 ns).
+`stream().anyMatch {}` is the only variant that allocates on every call, early exit included, and it is 4 to 5 times slower on a full scan. The inline extensions allocate nothing measurable: the `ArrayList` iterator is scalar replaced by escape analysis, so `list.any {}` matches the indexed loop at 280 ns against 282 ns.
 
-#### filter then findFirst, time (ns/op, lower is better)
+### FindFirst
+
+Time in ns/op, lower is better.
 
 | Method | empty | first | mid | last | absent |
 |---|---:|---:|---:|---:|---:|
@@ -160,7 +113,7 @@ The Java Stream is the only variant that allocates on every call, early exit inc
 | `list.asSequence().filter {}.firstOrNull()` | 0.36 | 0.68 | 137.48 | 281.56 | 279.67 |
 | `list.stream().filter {}.findFirst()` | 11.06 | 13.90 | 633.04 | 1 244.76 | 1 231.60 |
 
-#### filter then findFirst, allocation (B/op, lower is better)
+Allocation in B/op, lower is better.
 
 | Method | empty | first | mid | last | absent |
 |---|---:|---:|---:|---:|---:|
@@ -169,9 +122,9 @@ The Java Stream is the only variant that allocates on every call, early exit inc
 | `list.asSequence().filter {}.firstOrNull()` | ~0 | ~0 | ~0 | ~0 | ~0 |
 | `list.stream().filter {}.findFirst()` | 176.00 | 192.00 | 192.01 | 192.03 | 176.03 |
 
-`firstOrNull {}` does exactly what `filter().findFirst()` does, without the intermediate list: it returns on the first hit, 0.72 ns against 325 ns. `filter {}.firstOrNull()` pays for a full `ArrayList` of matches before looking at the first one.
+`firstOrNull {}` does exactly what `filter().findFirst()` does, without the intermediate list: 0.72 ns against 325 ns on the first hit. `filter {}.firstOrNull()` pays for a full `ArrayList` of matches before looking at the first one.
 
-#### filter then count
+### Count
 
 | Method | ns/op | B/op |
 |---|---:|---:|
@@ -182,9 +135,9 @@ The Java Stream is the only variant that allocates on every call, early exit inc
 | `list.count {}` on an all-miss list | 325.66 | ~0 |
 | `list.stream().filter {}.count()` on an all-miss list | 629.13 | 200.01 |
 
-`filter {}.size` is the Kotlin translation of the Java `filter().count()` habit, and it is the worst variant: it builds the full result list (a 1000 element `ArrayList`, 14 936 B/op) to read its size, for about 10 times the time.
+`filter {}.size` is the Kotlin translation of the Java `filter().count()` habit, and it is the worst variant: it builds the full result list, a 1000 element `ArrayList` at 14 936 B/op, to read its size, for about 10 times the time.
 
-### ContainsBenchmark
+### Contains
 
 Time in µs/op, lower is better.
 
@@ -205,9 +158,9 @@ Time in µs/op, lower is better.
 
 At 100 000 elements, `List.contains` is about 8 400 times slower than `Set.contains`, and `List.containsAll` reaches 16.9 ms. This is the JDK code, not a Kotlin implementation: `in` compiles to `List.contains`, and nothing in the language discourages it.
 
-The `toSet()` conversion measured inside the call costs about 1.8 ms at 100 000 elements, which is why it only pays off when the same collection is queried many times. The `intersect` one-liner is not a fix either: it is the slowest variant in the table. Its implementation walks the receiver and calls `contains` on the argument, so passing a `List` makes it O(n*m), exactly the trap it looks like it avoids.
+The `toSet()` conversion measured inside the call costs about 1.8 ms at 100 000 elements, so it only pays off when the same collection is queried many times. The `intersect` one-liner is not a fix either: it is the slowest variant in the table. Its implementation walks the receiver and calls `contains` on the argument, so passing a `List` makes it O(n*m), exactly the trap it looks like it avoids.
 
-### RegexBenchmark
+### Regex
 
 Time in ns/op and allocation in B/op.
 
@@ -230,15 +183,15 @@ Time in ns/op and allocation in B/op.
 Kotlin runs the same `java.util.regex` engine, so the ranking is the same as in the Java project. Three Kotlin-specific observations:
 
 * `Regex(...)` and `toRegex()` have no compile cache: 102 ns against 39 ns for a precompiled pattern, on a 13 character source string. The gap grows with pattern complexity.
-* `findAll` returns a lazy `Sequence`. `findAllNotConsumed` looks free (2 ns) because it does nothing. You get 29 µs only once a terminal operation is called.
+* `findAll` returns a lazy `Sequence`. `findAllNotConsumed` looks free at 2 ns because it does nothing. You get 29 µs only once a terminal operation is called.
 * Once consumed, `findAll` allocates 88 KB per call on 500 matches, about 176 B per match, against 128 B total for the `Matcher` loop. Each step of the sequence allocates its own iterator plus a `Matcher` and a `MatchResult` per occurrence.
 
 `matchesString` is the `String.matches` trap rather than a performance comparison: it is a whole string match, so it returns `false` here and exits on the first character.
 
-## Takeaways
+## Key Takeaways
 
-1. **The Java stream allocation problem does not reproduce.** `any {}`, `all {}`, `none {}`, `count {}` and `firstOrNull {}` are `inline` and compile to the loop you would write by hand. They allocate nothing measurable here, against 152 B/op for `stream().anyMatch {}`, which is also 4 to 5 times slower on a full scan.
-2. **`Sequence` is not the Kotlin `Stream`, and it is not free.** It adds up to 24 B/op on a `List` and makes full scans 11 to 45 percent slower, depending on the source type. Its `Int` sequences box at the API level; escape analysis removes that in these microbenchmarks, but not once values are retained. Use it for long chains on large inputs, not as a default replacement.
+1. **The Java stream allocation problem does not reproduce.** `any {}`, `all {}`, `none {}`, `count {}` and `firstOrNull {}` are `inline` and compile to the loop you would write by hand. They allocate nothing measurable, against 152 B/op for `stream().anyMatch {}`, which is also 4 to 5 times slower on a full scan.
+2. **`Sequence` is not the Kotlin `Stream`, and it is not free.** It adds up to 24 B/op on a `List` and makes full scans 11 to 45 percent slower, depending on the source type. Its `Int` sequences box at the API level; escape analysis removes that in these microbenchmarks, but not once values are retained.
 3. **The equivalent of `filter().count()` is `count {}`.** `filter {}.size` builds the whole result list: 14 936 B/op and 10 times the time.
 4. **Boxing is where Kotlin costs more than Java.** `IntArray.any {}` scans 1000 elements in 78 ns; `List<Int>` and `Array<Int>` take 281 and 185 ns. There is no `IntStream` equivalent on `Sequence`, so the performance answer is primitive arrays plus inline extensions.
 5. **Collections are untouched.** `contains` and `containsAll` are JDK implementations behind a Kotlin facade, with the same O(n) and O(n*m) behaviour. `in`, `listOf` and `toSet()` make the trap easier to write, not harder.
